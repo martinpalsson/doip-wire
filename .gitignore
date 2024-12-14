@@ -1,0 +1,36 @@
+# Binaries for programs and examples
+*.exe
+*.exe~
+*.dll
+*.dylib
+*.so
+
+# Test, build, and release artifacts
+/target/
+/**/target/
+
+# Cargo package manager files
+Cargo.lock
+.cargo/
+
+# Backup files
+*.bak
+*.swp
+*.swo
+*.orig
+
+# IDE and editor files
+.idea/
+.vscode/
+*.iml
+
+# Rust specific files
+*.rs.bk
+*.rs.bak
+
+# Logs
+*.log
+
+# Temporary files
+*.tmp
+*.temp

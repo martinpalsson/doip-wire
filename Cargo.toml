@@ -1,0 +1,19 @@
+[package]
+name = "doip-wire"
+version = "0.1.0"
+edition = "2021"
+authors = ["Martin Pålsson <martin@poleshift.se>"]
+description = "A DoIP packet parser intended for embedded systems."
+license = "0BSD"
+repository = "https://github.com/yourusername/doip-wire"
+documentation = "https://docs.rs/doip-wire"
+readme = "README.md"
+keywords = ["doip", "parser", "embedded", "network"]
+categories = ["network-programming", "embedded"]
+
+[dependencies]
+byteorder = { version = "1.0", default-features = false }
+defmt = { version = "0.3.8", optional = true, features = ["ip_in_core"] }
+
+[features]
+defmt = ["dep:defmt"]
