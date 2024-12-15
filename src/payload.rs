@@ -693,7 +693,8 @@ impl<'a> Payload<'a> {
         let type_code = packet.payload_type();
         let length = packet.payload_length();
         let content_length = packet.payload_content_length();
-        let (_, content) = PayloadTypeContent::parse(packet.payload(), type_code, content_length)?;
+        let (_, content) =
+            PayloadTypeContent::parse(packet.payload_content(), type_code, content_length)?;
 
         Ok(Payload {
             type_code,

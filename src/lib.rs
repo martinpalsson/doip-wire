@@ -1,3 +1,75 @@
+//! # DoIP-wire
+//!
+//! This crate provides the means for parsing byte arrays into higher-level
+//! DoIP representations, and vice versa. It is designed to be used in embedded
+//! environments and is a no-std crate.
+//!
+//! ## Examples
+//! ### Parsing
+//!
+//! ```rust
+//! use doip_wire::packet::Packet;
+//! use doip_wire::payload::{Payload, PayloadTypeCode, PayloadTypeContent, Repr};
+//!
+//! let buffer = [0x02, 0xfd, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00];
+//! let packet = Packet::new_checked(&buffer).unwrap();
+//! let repr = Repr::parse(&packet).unwrap();
+//!
+//! assert_eq!(repr.protocol_version, 0x02);
+//! assert_eq!(repr.inverse_protocol_version, 0xfd);
+//! assert_eq!(repr.payload.type_code, PayloadTypeCode::GenericDoIPHeaderNegativeResponse);
+//! assert_eq!(repr.payload.length, 0);
+//! assert_eq!(repr.payload.content, PayloadTypeContent::GenericDoIPHeaderNegativeResponse);
+//! ```
+//!
+//! ### Emitting
+//!
+//! ```rust
+//! use doip_wire::packet::Packet;
+//! use doip_wire::payload::{Payload, PayloadTypeCode, PayloadTypeContent, Repr};
+//!
+//! let repr = Repr {
+//!     protocol_version: 0x02,
+//!     inverse_protocol_version: 0xfd,
+//!     payload: Payload {
+//!     type_code: PayloadTypeCode::DiagnosticMessage,
+//!     length: 7,
+//!     content: PayloadTypeContent::DiagnosticMessage {
+//!         source_address: 0x0e80,
+//!         target_address: 0x0101,
+//!         user_data: &[0x22, 0xF1, 0x90],
+//!         },
+//!     },
+//! };
+//!
+//! let mut buffer = [0u8; 1024]; // Static buffer size
+//! let mut packet = Packet::new_unchecked(&mut buffer);
+//! repr.emit(&mut packet);
+//!
+//! assert_eq!(packet.protocol_version(), 0x02);
+//! assert_eq!(packet.inverse_protocol_version(), 0xfd);
+//! assert_eq!(packet.payload_type(), PayloadTypeCode::DiagnosticMessage);
+//! assert_eq!(packet.payload_length(), 7);
+//! assert_eq!(packet.payload_content(), [0x0e, 0x80, 0x01, 0x01, 0x22, 0xF1, 0x90]);
+//! assert_eq!(packet.into_inner()[..15], [0x02, 0xfd, 0x80, 0x01, 0x00, 0x00, 0x00, 0x07, 0x0e, 0x80, 0x01, 0x01, 0x22, 0xF1, 0x90]);
+//! ```
+//!
+//! ## Modules
+//! The `doip-wire` crate provides the following modules:
+//!
+//! - `error`: Contains the error type for DoIP packets.
+//! - `field`: Contains the field definitions for the DoIP header and payload.
+//! - `packet`: Contains the `Packet` type for parsing DoIP packets.
+//! - `payload`: Contains the `Payload` type for parsing DoIP payloads.
+//!
+//! ## Notes
+//! The `doip-wire` crate is a no-std crate, and it can be used in embedded environments.
+//!
+//! The `doip-wire` crate is based on the `smoltcp` crate, and it is a stripped-down version of the `smoltcp` crate.
+//!
+//! The `doip-wire` crate is a work in progress, and it is not yet feature-complete.
+//!
+
 pub mod error;
 pub mod field;
 pub mod packet;
@@ -38,7 +110,7 @@ mod test {
             PayloadTypeCode::GenericDoIPHeaderNegativeResponse
         );
         assert_eq!(packet.payload_length(), 0x00000004);
-        assert_eq!(packet.payload(), [0x04, 0x03, 0x02, 0x01]);
+        assert_eq!(packet.payload_content(), [0x04, 0x03, 0x02, 0x01]);
     }
 
     #[test]
