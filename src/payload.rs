@@ -59,6 +59,7 @@ impl PayloadTypeCode {
 }
 
 impl fmt::Display for PayloadTypeCode {
+    /// Formats the payload type as a string.
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
             PayloadTypeCode::GenericDoIPHeaderNegativeResponse => {
@@ -683,6 +684,7 @@ impl fmt::Display for PayloadTypeContent<'_> {
     }
 }
 
+/// A high-level representation of a DoIP payload.
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub struct Payload<'a> {
     pub type_code: PayloadTypeCode,
@@ -691,6 +693,15 @@ pub struct Payload<'a> {
 }
 
 impl<'a> Payload<'a> {
+    /// Parses a payload from a packet.
+    ///
+    /// # Arguments
+    ///
+    /// * `packet` - A reference to the packet containing the payload.
+    ///
+    /// # Returns
+    ///
+    /// * `Result<Payload>` - The parsed payload.
     pub fn parse<T>(packet: &Packet<&'a T>) -> Result<Payload<'a>>
     where
         T: AsRef<[u8]> + ?Sized,
@@ -708,6 +719,15 @@ impl<'a> Payload<'a> {
         })
     }
 
+    /// Emits the payload into a buffer.
+    ///
+    /// # Arguments
+    ///
+    /// * `buffer` - A mutable reference to the buffer.
+    ///
+    /// # Returns
+    ///
+    /// * `&mut [u8]` - The remaining buffer after the payload has been written.
     pub fn emit<'b>(&self, buffer: &'b mut [u8]) -> &'b mut [u8] {
         NetworkEndian::write_u16(&mut buffer[field::payload::TYPE], self.type_code as u16);
         NetworkEndian::write_u32(&mut buffer[field::payload::PAYLOAD_LENGTH], self.length);
@@ -740,6 +760,14 @@ pub struct Repr<'a> {
 
 impl<'a> Repr<'a> {
     /// Parses the packet/buffer and returns a high-level representation of the DoIP packet.
+    ///
+    /// # Arguments
+    ///
+    /// * `packet` - A reference to the packet to be parsed.
+    ///
+    /// # Returns
+    ///
+    /// * `Result<Repr>` - The high-level representation of the DoIP packet.
     pub fn parse<T>(packet: &Packet<&'a T>) -> Result<Repr<'a>>
     where
         T: AsRef<[u8]> + ?Sized,
@@ -753,16 +781,28 @@ impl<'a> Repr<'a> {
     }
 
     /// Returns the length of the header.
+    ///
+    /// # Returns
+    ///
+    /// * `usize` - The length of the header.
     pub fn header_len(&self) -> usize {
         field::header::LENGTH
     }
 
     /// Returns the length of the buffer.
+    ///
+    /// # Returns
+    ///
+    /// * `usize` - The length of the buffer.
     pub fn buffer_len(&self) -> usize {
         self.header_len() + self.payload.length as usize
     }
 
     /// Emits the high-level representation of the DoIP packet into the provided packet/buffer.
+    ///
+    /// # Arguments
+    ///
+    /// * `packet` - A mutable reference to the packet where the high-level representation will be written.
     pub fn emit<T>(&self, packet: &mut Packet<&mut T>)
     where
         T: AsRef<[u8]> + AsMut<[u8]> + ?Sized,
