@@ -18,7 +18,7 @@ pub type Result<T> = core::result::Result<T, Error>;
 //
 // +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 // |                  Header syncronization pattern                      |
-// |       Protocol version        |       Inverse protocol version      | 
+// |       Protocol version        |       Inverse protocol version      |
 // +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 // |                              Payload                                |
 // |  Payload type code  |  Payload length  |    Payload type content    |
@@ -57,20 +57,20 @@ mod field {
         pub mod vir_eid {
             use crate::field::Field;
             pub const EID: Field = 0..6;
-            
+
             pub const LENGTH: usize = 6;
             pub const EID_LENGTH: usize = 6;
         }
-        
+
         /// Vehicle Identification Request with VIN
         pub mod vir_vin {
             use crate::field::Field;
             pub const VIN: Field = 0..17;
-    
+
             pub const LENGTH: usize = 17;
             pub const VIN_LENGTH: usize = 17;
         }
-    
+
         /// Vehicle Announce Message / Vehicle Identification Response
         pub mod vam {
             use crate::field::Field;
@@ -80,7 +80,7 @@ mod field {
             pub const GID: Field = 25..31;
             pub const FTA: Field = 31..32;
             pub const GSS: Field = 32..33;
-            
+
             pub const LENGTH: usize = 33;
             pub const VIN_LENGTH: usize = 17;
             pub const EID_LENGTH: usize = 6;
@@ -96,7 +96,7 @@ mod field {
             pub const OEM_RES: Field = 7..11;
             pub const LENGTH: usize = 11;
         }
-        
+
         /// Routing Activation Response
         pub mod ra_res {
             use crate::field::Field;
@@ -112,7 +112,7 @@ mod field {
         pub mod ac_req {
             pub const LENGTH: usize = 0;
         }
-    
+
         /// Alive Check Response
         pub mod ac_res {
             use crate::field::Field;
@@ -124,7 +124,7 @@ mod field {
         pub mod des_req {
             pub const LENGTH: usize = 0;
         }
-    
+
         // DoIP Entity Status Response
         pub mod des_res {
             use crate::field::Field;
@@ -139,24 +139,24 @@ mod field {
         pub mod dpmi_req {
             pub const LENGTH: usize = 0;
         }
-    
+
         /// Diagnostic Power Mode Information Response
         pub mod dpmi_res {
             use crate::field::Field;
             pub const DPM: Field = 0..1;
             pub const LENGTH: usize = 1;
         }
-    
+
         /// Diagnostic Message
         pub mod dm {
             use crate::field::Field;
             pub const SA: Field = 0..2;
             pub const TA: Field = 2..4;
             pub const fn DATA(length: usize) -> Field {
-                TA.end..length
+                TA.end..TA.end + length
             }
         }
-    
+
         /// Diagnostic Message Positive/Negative Acknowledgement
         pub mod dm_xack {
             use crate::field::Field;
@@ -164,13 +164,11 @@ mod field {
             pub const TA: Field = 2..4;
             pub const ACKC: Field = 4..5;
             pub const fn DATA(length: usize) -> Field {
-                ACKC.end..length
+                ACKC.end..ACKC.end + length
             }
         }
     }
 }
-
-
 
 /// Enum representing the different payload types in the DoIP protocol.
 #[derive(PartialEq, Eq, Clone, Copy, Debug)]
@@ -320,10 +318,10 @@ impl<T: AsRef<[u8]>> Packet<T> {
 
     pub fn payload_type(&self) -> PayloadTypeCode {
         let data = self.buffer.as_ref();
-         match PayloadTypeCode::from_u16(NetworkEndian::read_u16(&data[field::header::TYPE])) {
+        match PayloadTypeCode::from_u16(NetworkEndian::read_u16(&data[field::header::TYPE])) {
             Some(payload_type) => payload_type,
             None => PayloadTypeCode::GenericDoIPHeaderNegativeResponse,
-         }
+        }
     }
 
     pub fn payload_length(&self) -> usize {
@@ -366,7 +364,8 @@ impl<'a, T: AsRef<[u8]> + ?Sized> Packet<&'a T> {
     #[inline]
     pub fn payload(&self) -> &'a [u8] {
         let data = self.buffer.as_ref();
-        &data[field::header::PAYLOAD_LENGTH.end..field::header::PAYLOAD_LENGTH.end + self.payload_length()]
+        &data[field::header::PAYLOAD_LENGTH.end
+            ..field::header::PAYLOAD_LENGTH.end + self.payload_length()]
     }
 }
 
@@ -459,7 +458,11 @@ impl<'a> PayloadTypeContent<'a> {
     ///
     /// * `Ok((remaining_buffer, payload))` - A tuple containing the remaining buffer and the parsed PayloadTypeContent.
     /// * `Err(Error)` - An error if the buffer is too short or contains invalid data.
-    pub fn parse(buffer: &'a [u8], payload_type: PayloadTypeCode, payload_content_length: usize) -> Result<(&'a [u8], PayloadTypeContent<'a>)> {
+    pub fn parse(
+        buffer: &'a [u8],
+        payload_type: PayloadTypeCode,
+        payload_content_length: usize,
+    ) -> Result<(&'a [u8], PayloadTypeContent<'a>)> {
         let (length, payload);
         match payload_type {
             PayloadTypeCode::GenericDoIPHeaderNegativeResponse => {
@@ -474,9 +477,7 @@ impl<'a> PayloadTypeContent<'a> {
                 if buffer.len() < field::payload::vir_eid::LENGTH {
                     return Err(Error);
                 }
-                let eid = buffer
-                    .get(field::payload::vir_eid::EID)
-                    .ok_or(Error)?;
+                let eid = buffer.get(field::payload::vir_eid::EID).ok_or(Error)?;
                 length = field::payload::vir_eid::LENGTH;
                 payload = PayloadTypeContent::VehicleIdentificationRequestWithEID {
                     eid: eid.try_into().unwrap(),
@@ -486,9 +487,7 @@ impl<'a> PayloadTypeContent<'a> {
                 if buffer.len() < field::payload::vir_vin::LENGTH {
                     return Err(Error);
                 }
-                let vin = buffer
-                    .get(field::payload::vir_vin::VIN)
-                    .ok_or(Error)?;
+                let vin = buffer.get(field::payload::vir_vin::VIN).ok_or(Error)?;
                 length = field::payload::vir_vin::LENGTH;
                 payload = PayloadTypeContent::VehicleIdentificationRequestWithVIN {
                     vin: vin.try_into().unwrap(),
@@ -498,22 +497,12 @@ impl<'a> PayloadTypeContent<'a> {
                 if buffer.len() < field::payload::vam::LENGTH {
                     return Err(Error);
                 }
-                let vin = buffer
-                    .get(field::payload::vam::VIN)
-                    .ok_or(Error)?;
-                let logical_address = NetworkEndian::read_u16(
-                    &buffer[field::payload::vam::LA],
-                );
-                let eid = buffer
-                    .get(field::payload::vam::EID)
-                    .ok_or(Error)?;
-                let gid = buffer
-                    .get(field::payload::vam::GID)
-                    .ok_or(Error)?;
-                let further_action =
-                    buffer[field::payload::vam::FTA.start];
-                let gid_sync_status =
-                    buffer[field::payload::vam::GSS.start];
+                let vin = buffer.get(field::payload::vam::VIN).ok_or(Error)?;
+                let logical_address = NetworkEndian::read_u16(&buffer[field::payload::vam::LA]);
+                let eid = buffer.get(field::payload::vam::EID).ok_or(Error)?;
+                let gid = buffer.get(field::payload::vam::GID).ok_or(Error)?;
+                let further_action = buffer[field::payload::vam::FTA.start];
+                let gid_sync_status = buffer[field::payload::vam::GSS.start];
                 length = field::payload::vam::LENGTH;
                 payload = PayloadTypeContent::VehicleIdentificationResponseMessage {
                     vin: vin.try_into().unwrap(),
@@ -524,37 +513,16 @@ impl<'a> PayloadTypeContent<'a> {
                     gid_sync_status,
                 };
             }
-            PayloadTypeCode::DiagnosticMessage => {
-                if buffer.len() < field::payload::dm::DATA(0).end {
-                    return Err(Error);
-                }
-                let source_address =
-                    NetworkEndian::read_u16(&buffer[field::payload::dm::SA]);
-                let target_address =
-                    NetworkEndian::read_u16(&buffer[field::payload::dm::TA]);
-                length = buffer.len();
-                let user_data = &buffer[field::payload::dm::DATA(length)];
-                payload = PayloadTypeContent::DiagnosticMessage {
-                    source_address,
-                    target_address,
-                    user_data,
-                };
-            }
             PayloadTypeCode::RoutingActivationRequest => {
                 if buffer.len() < field::payload::ra_req::LENGTH {
                     return Err(Error);
                 }
-                let source_address = NetworkEndian::read_u16(
-                    &buffer[field::payload::ra_req::SA],
-                );
-                let activation_type =
-                    buffer[field::payload::ra_req::AT.start];
-                let iso_reserved = NetworkEndian::read_u32(
-                    &buffer[field::payload::ra_req::ISO_RES],
-                );
-                let oem_specific = NetworkEndian::read_u32(
-                    &buffer[field::payload::ra_req::OEM_RES],
-                );
+                let source_address = NetworkEndian::read_u16(&buffer[field::payload::ra_req::SA]);
+                let activation_type = buffer[field::payload::ra_req::AT.start];
+                let iso_reserved =
+                    NetworkEndian::read_u32(&buffer[field::payload::ra_req::ISO_RES]);
+                let oem_specific =
+                    NetworkEndian::read_u32(&buffer[field::payload::ra_req::OEM_RES]);
                 length = field::payload::ra_req::LENGTH;
                 payload = PayloadTypeContent::RoutingActivationRequest {
                     source_address,
@@ -567,20 +535,15 @@ impl<'a> PayloadTypeContent<'a> {
                 if buffer.len() < field::payload::ra_res::LENGTH {
                     return Err(Error);
                 }
-                let logical_address_tester = NetworkEndian::read_u16(
-                    &buffer[field::payload::ra_res::LAT],
-                );
-                let logical_address_doip_entity = NetworkEndian::read_u16(
-                    &buffer[field::payload::ra_res::LADE],
-                );
-                let routing_activation_response_code =
-                    buffer[field::payload::ra_res::RCODE.start];
-                let iso_reserved = NetworkEndian::read_u32(
-                    &buffer[field::payload::ra_res::ISO_RES],
-                );
-                let oem_specific = NetworkEndian::read_u32(
-                    &buffer[field::payload::ra_res::OEM_RES],
-                );
+                let logical_address_tester =
+                    NetworkEndian::read_u16(&buffer[field::payload::ra_res::LAT]);
+                let logical_address_doip_entity =
+                    NetworkEndian::read_u16(&buffer[field::payload::ra_res::LADE]);
+                let routing_activation_response_code = buffer[field::payload::ra_res::RCODE.start];
+                let iso_reserved =
+                    NetworkEndian::read_u32(&buffer[field::payload::ra_res::ISO_RES]);
+                let oem_specific =
+                    NetworkEndian::read_u32(&buffer[field::payload::ra_res::OEM_RES]);
                 length = field::payload::ra_res::LENGTH;
                 payload = PayloadTypeContent::RoutingActivationResponse {
                     logical_address_tester,
@@ -598,8 +561,7 @@ impl<'a> PayloadTypeContent<'a> {
                 if buffer.len() < field::payload::ac_res::LENGTH {
                     return Err(Error);
                 }
-                let source_address =
-                    NetworkEndian::read_u16(&buffer[field::payload::ac_res::SA]);
+                let source_address = NetworkEndian::read_u16(&buffer[field::payload::ac_res::SA]);
                 length = field::payload::ac_res::LENGTH;
                 payload = PayloadTypeContent::AliveCheckResponse { source_address };
             }
@@ -612,13 +574,9 @@ impl<'a> PayloadTypeContent<'a> {
                     return Err(Error);
                 }
                 let node_type = buffer[field::payload::des_res::NT.start];
-                let max_open_sockets =
-                    buffer[field::payload::des_res::MOS.start];
-                let currently_open_sockets =
-                    buffer[field::payload::des_res::COS.start];
-                let max_data_size = NetworkEndian::read_u32(
-                    &buffer[field::payload::des_res::MDS],
-                );
+                let max_open_sockets = buffer[field::payload::des_res::MOS.start];
+                let currently_open_sockets = buffer[field::payload::des_res::COS.start];
+                let max_data_size = NetworkEndian::read_u32(&buffer[field::payload::des_res::MDS]);
                 length = field::payload::des_res::LENGTH;
                 payload = PayloadTypeContent::DoIPEntityStatusResponse {
                     node_type,
@@ -632,30 +590,41 @@ impl<'a> PayloadTypeContent<'a> {
                 payload = PayloadTypeContent::DiagnosticPowerModeInformationRequest;
             }
             PayloadTypeCode::DiagnosticPowerModeInformationResponse => {
-                if buffer.len()
-                    < field::payload::dpmi_res::LENGTH
-                {
+                if buffer.len() < field::payload::dpmi_res::LENGTH {
                     return Err(Error);
                 }
-                let diagnostic_power_mode = buffer
-                    [field::payload::dpmi_res::DPM.start];
+                let diagnostic_power_mode = buffer[field::payload::dpmi_res::DPM.start];
                 length = field::payload::dpmi_res::LENGTH;
                 payload = PayloadTypeContent::DiagnosticPowerModeInformationResponse {
                     diagnostic_power_mode,
+                };
+            }
+            PayloadTypeCode::DiagnosticMessage => {
+                if buffer.len() < field::payload::dm::DATA(0).end {
+                    return Err(Error);
+                }
+                let source_address = NetworkEndian::read_u16(&buffer[field::payload::dm::SA]);
+                let target_address = NetworkEndian::read_u16(&buffer[field::payload::dm::TA]);
+                length = buffer.len();
+                let user_data = &buffer
+                    [field::payload::dm::DATA(payload_content_length - field::payload::dm::TA.end)];
+                payload = PayloadTypeContent::DiagnosticMessage {
+                    source_address,
+                    target_address,
+                    user_data,
                 };
             }
             PayloadTypeCode::DiagnosticMessageAck => {
                 if buffer.len() < field::payload::dm_xack::DATA(0).end {
                     return Err(Error);
                 }
-                let source_address =
-                    NetworkEndian::read_u16(&buffer[field::payload::dm_xack::SA]);
-                let target_address =
-                    NetworkEndian::read_u16(&buffer[field::payload::dm_xack::TA]);
+                let source_address = NetworkEndian::read_u16(&buffer[field::payload::dm_xack::SA]);
+                let target_address = NetworkEndian::read_u16(&buffer[field::payload::dm_xack::TA]);
                 let ack_code = buffer[field::payload::dm_xack::ACKC.start];
                 length = buffer.len();
-                let previous_diagnostic_message =
-                    &buffer[field::payload::dm_xack::DATA(payload_content_length)];
+                let previous_diagnostic_message = &buffer[field::payload::dm_xack::DATA(
+                    payload_content_length - field::payload::dm_xack::ACKC.end,
+                )];
                 payload = PayloadTypeContent::DiagnosticMessagePositiveAcknowledgement {
                     source_address,
                     target_address,
@@ -667,14 +636,13 @@ impl<'a> PayloadTypeContent<'a> {
                 if buffer.len() < field::payload::dm_xack::DATA(0).end {
                     return Err(Error);
                 }
-                let source_address =
-                    NetworkEndian::read_u16(&buffer[field::payload::dm_xack::SA]);
-                let target_address =
-                    NetworkEndian::read_u16(&buffer[field::payload::dm_xack::TA]);
+                let source_address = NetworkEndian::read_u16(&buffer[field::payload::dm_xack::SA]);
+                let target_address = NetworkEndian::read_u16(&buffer[field::payload::dm_xack::TA]);
                 let nack_code = buffer[field::payload::dm_xack::ACKC.start];
                 length = buffer.len();
-                let previous_diagnostic_message =
-                    &buffer[field::payload::dm_xack::DATA(payload_content_length)];
+                let previous_diagnostic_message = &buffer[field::payload::dm_xack::DATA(
+                    payload_content_length - field::payload::dm_xack::ACKC.end,
+                )];
                 payload = PayloadTypeContent::DiagnosticMessageNegativeAcknowledgement {
                     source_address,
                     target_address,
@@ -728,17 +696,6 @@ impl<'a> PayloadTypeContent<'a> {
                 buffer[field::payload::vam::GSS.start] = gid_sync_status;
                 length = field::payload::vam::LENGTH;
             }
-            PayloadTypeContent::DiagnosticMessage {
-                source_address,
-                target_address,
-                user_data,
-            } => {
-                NetworkEndian::write_u16(&mut buffer[field::payload::dm::SA], source_address);
-                NetworkEndian::write_u16(&mut buffer[field::payload::dm::TA], target_address);
-                let data_range = field::payload::dm::DATA(payload_content_length);
-                length = data_range.end;
-                buffer[data_range].copy_from_slice(user_data);
-            }
             PayloadTypeContent::RoutingActivationRequest {
                 source_address,
                 activation_type,
@@ -747,8 +704,14 @@ impl<'a> PayloadTypeContent<'a> {
             } => {
                 NetworkEndian::write_u16(&mut buffer[field::payload::ra_req::SA], source_address);
                 buffer[field::payload::ra_req::AT.start] = activation_type;
-                NetworkEndian::write_u32(&mut buffer[field::payload::ra_req::ISO_RES], iso_reserved);
-                NetworkEndian::write_u32(&mut buffer[field::payload::ra_req::OEM_RES], oem_specific);
+                NetworkEndian::write_u32(
+                    &mut buffer[field::payload::ra_req::ISO_RES],
+                    iso_reserved,
+                );
+                NetworkEndian::write_u32(
+                    &mut buffer[field::payload::ra_req::OEM_RES],
+                    oem_specific,
+                );
                 length = field::payload::ra_req::LENGTH;
             }
             PayloadTypeContent::RoutingActivationResponse {
@@ -758,11 +721,23 @@ impl<'a> PayloadTypeContent<'a> {
                 iso_reserved,
                 oem_specific,
             } => {
-                NetworkEndian::write_u16(&mut buffer[field::payload::ra_res::LAT], logical_address_tester);
-                NetworkEndian::write_u16(&mut buffer[field::payload::ra_res::LADE], logical_address_doip_entity);
+                NetworkEndian::write_u16(
+                    &mut buffer[field::payload::ra_res::LAT],
+                    logical_address_tester,
+                );
+                NetworkEndian::write_u16(
+                    &mut buffer[field::payload::ra_res::LADE],
+                    logical_address_doip_entity,
+                );
                 buffer[field::payload::ra_res::RCODE.start] = routing_activation_response_code;
-                NetworkEndian::write_u32(&mut buffer[field::payload::ra_res::ISO_RES], iso_reserved);
-                NetworkEndian::write_u32(&mut buffer[field::payload::ra_res::OEM_RES], oem_specific);
+                NetworkEndian::write_u32(
+                    &mut buffer[field::payload::ra_res::ISO_RES],
+                    iso_reserved,
+                );
+                NetworkEndian::write_u32(
+                    &mut buffer[field::payload::ra_res::OEM_RES],
+                    oem_specific,
+                );
                 length = field::payload::ra_res::LENGTH;
             }
             PayloadTypeContent::AliveCheckRequest => {
@@ -796,6 +771,18 @@ impl<'a> PayloadTypeContent<'a> {
                 buffer[field::payload::dpmi_res::DPM.start] = diagnostic_power_mode;
                 length = field::payload::dpmi_res::LENGTH;
             }
+            PayloadTypeContent::DiagnosticMessage {
+                source_address,
+                target_address,
+                user_data,
+            } => {
+                NetworkEndian::write_u16(&mut buffer[field::payload::dm::SA], source_address);
+                NetworkEndian::write_u16(&mut buffer[field::payload::dm::TA], target_address);
+                let data_range =
+                    field::payload::dm::DATA(payload_content_length - field::payload::dm::TA.end);
+                length = data_range.end;
+                buffer[data_range].copy_from_slice(user_data);
+            }
             PayloadTypeContent::DiagnosticMessagePositiveAcknowledgement {
                 source_address,
                 target_address,
@@ -805,9 +792,11 @@ impl<'a> PayloadTypeContent<'a> {
                 NetworkEndian::write_u16(&mut buffer[field::payload::dm_xack::SA], source_address);
                 NetworkEndian::write_u16(&mut buffer[field::payload::dm_xack::TA], target_address);
                 buffer[field::payload::dm_xack::ACKC.start] = ack_code;
-                let data_range = field::payload::dm_xack::DATA(payload_content_length);
-                length = data_range.end;
-                buffer[data_range].copy_from_slice(previous_diagnostic_message);
+                let prev_diag_msg_len = payload_content_length - field::payload::dm_xack::ACKC.end;
+                let data_range = field::payload::dm_xack::DATA(prev_diag_msg_len);
+                length = data_range.len();
+                buffer[data_range]
+                    .copy_from_slice(&previous_diagnostic_message[..prev_diag_msg_len]);
             }
             PayloadTypeContent::DiagnosticMessageNegativeAcknowledgement {
                 source_address,
@@ -818,9 +807,11 @@ impl<'a> PayloadTypeContent<'a> {
                 NetworkEndian::write_u16(&mut buffer[field::payload::dm_xack::SA], source_address);
                 NetworkEndian::write_u16(&mut buffer[field::payload::dm_xack::TA], target_address);
                 buffer[field::payload::dm_xack::ACKC.start] = nack_code;
-                let data_range = field::payload::dm_xack::DATA(payload_content_length);
-                length = data_range.end;
-                buffer[data_range].copy_from_slice(previous_diagnostic_message);
+                let prev_diag_msg_len = payload_content_length - field::payload::dm_xack::ACKC.end;
+                let data_range = field::payload::dm_xack::DATA(prev_diag_msg_len);
+                length = data_range.len();
+                buffer[data_range]
+                    .copy_from_slice(&previous_diagnostic_message[..prev_diag_msg_len]);
             }
         }
         &mut buffer[length..]
@@ -854,7 +845,10 @@ impl<'a> Payload<'a> {
     pub fn emit<'b>(&self, buffer: &'b mut [u8]) -> &'b mut [u8] {
         NetworkEndian::write_u16(&mut buffer[field::payload::TYPE], self.type_code as u16);
         NetworkEndian::write_u32(&mut buffer[field::payload::PAYLOAD_LENGTH], self.length);
-        self.content.emit(&mut buffer[field::payload::PAYLOAD_LENGTH.end..], self.length as usize);
+        self.content.emit(
+            &mut buffer[field::payload::PAYLOAD_LENGTH.end..],
+            self.length as usize,
+        );
         &mut buffer[(field::payload::PAYLOAD_LENGTH.end + self.length as usize)..]
     }
 }
@@ -865,9 +859,7 @@ impl<'a> fmt::Display for Payload<'a> {
         write!(
             f,
             "Payload: type_code={}, length={}, content={}",
-            self.type_code,
-            self.length,
-            self.content,
+            self.type_code, self.length, self.content,
         )
     }
 }
@@ -911,6 +903,8 @@ impl<'a> Repr<'a> {
     {
         packet.set_protocol_version(self.protocol_version);
         packet.set_inverse_protocol_version(self.inverse_protocol_version);
+        packet.set_payload_type(self.payload.type_code);
+        packet.set_payload_length(self.payload.length as usize);
         self.payload.emit(packet.payload());
     }
 }
@@ -1062,9 +1056,7 @@ impl<'a> fmt::Display for Repr<'a> {
         write!(
             f,
             "DoIP packet: protocol_version={}, inverse_protocol_version={}, payload={}",
-            self.protocol_version,
-            self.inverse_protocol_version,
-            self.payload,
+            self.protocol_version, self.inverse_protocol_version, self.payload,
         )
     }
 }
@@ -1078,9 +1070,9 @@ impl<'a> defmt::Format for Repr<'a> {
             "DoIP packet: protocol_version={}, inverse_protocol_version={}, payload_type={}, payload_length={}, payload={}",
             self.protocol_version,
             self.inverse_protocol_version,
-            self.payload_type,
-            self.payload_length,
-            self.payload,
+            self.payload.type_code,
+            self.payload.length,
+            self.payload.content,
         )
     }
 }
@@ -1096,7 +1088,10 @@ mod test {
         let packet = Packet::new_unchecked(&PACKET_BYTES_HEADER_ONLY[..]);
         assert_eq!(packet.protocol_version(), 0x01);
         assert_eq!(packet.inverse_protocol_version(), 0xFE);
-        assert_eq!(packet.payload_type(), PayloadTypeCode::GenericDoIPHeaderNegativeResponse);
+        assert_eq!(
+            packet.payload_type(),
+            PayloadTypeCode::GenericDoIPHeaderNegativeResponse
+        );
         assert_eq!(packet.payload_length(), 0x00000000);
     }
 
@@ -1108,414 +1103,31 @@ mod test {
         let packet = Packet::new_unchecked(&PACKET_BYTES_WITH_PAYLOAD[..]);
         assert_eq!(packet.protocol_version(), 0x01);
         assert_eq!(packet.inverse_protocol_version(), 0xFE);
-        assert_eq!(packet.payload_type(), PayloadTypeCode::GenericDoIPHeaderNegativeResponse);
+        assert_eq!(
+            packet.payload_type(),
+            PayloadTypeCode::GenericDoIPHeaderNegativeResponse
+        );
         assert_eq!(packet.payload_length(), 0x00000004);
         assert_eq!(packet.payload(), [0x04, 0x03, 0x02, 0x01]);
     }
 
     #[test]
-    fn test_parse_and_emit_generic_doip_header_negative_response() {
-        let buffer = [];
-        let payload_type = PayloadTypeCode::GenericDoIPHeaderNegativeResponse;
-        let (remaining, payload) = PayloadTypeContent::parse(&buffer, payload_type, 0).unwrap();
-        assert_eq!(remaining, &[]);
-        assert!(matches!(
-            payload,
-            PayloadTypeContent::GenericDoIPHeaderNegativeResponse
-        ));
-
-        let mut emit_buffer = [0u8; 0];
-        let remaining = payload.emit(&mut emit_buffer, 0);
-        assert_eq!(remaining, &[]);
-    }
-
-    #[test]
-    fn test_parse_and_emit_vehicle_identification_request() {
-        let buffer = [];
-        let payload_type = PayloadTypeCode::VehicleIdentificationRequest;
-        let (remaining, payload) = PayloadTypeContent::parse(&buffer, payload_type, 0).unwrap();
-        assert_eq!(remaining, &[]);
-        assert!(matches!(payload, PayloadTypeContent::VehicleIdentificationRequest));
-
-        let mut emit_buffer = [0u8; 0];
-        let remaining = payload.emit(&mut emit_buffer, 0);
-        assert_eq!(remaining, &[]);
-    }
-
-    #[test]
-    fn test_parse_and_emit_vehicle_identification_request_with_eid() {
-        let buffer = [1, 2, 3, 4, 5, 6];
-        let payload_type = PayloadTypeCode::VehicleIdentificationRequestEID;
-        let (remaining, payload) = PayloadTypeContent::parse(&buffer, payload_type, 6).unwrap();
-        assert_eq!(remaining, &[]);
-        if let PayloadTypeContent::VehicleIdentificationRequestWithEID { eid } = payload {
-            assert_eq!(eid, &[1, 2, 3, 4, 5, 6]);
-        } else {
-            panic!("Unexpected payload type");
-        }
-
-        let mut emit_buffer = [0u8; 6];
-        let remaining = payload.emit(&mut emit_buffer, 6);
-        assert_eq!(remaining, &[]);
-        assert_eq!(emit_buffer, [1, 2, 3, 4, 5, 6]);
-    }
-
-    #[test]
-    fn test_parse_and_emit_vehicle_identification_request_with_vin() {
-        let buffer = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17];
-        let payload_type = PayloadTypeCode::VehicleIdentificationRequestVIN;
-        let (remaining, payload) = PayloadTypeContent::parse(&buffer, payload_type, 17).unwrap();
-        assert_eq!(remaining, &[]);
-        if let PayloadTypeContent::VehicleIdentificationRequestWithVIN { vin } = payload {
-            assert_eq!(
-                vin,
-                &[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17]
-            );
-        } else {
-            panic!("Unexpected payload type");
-        }
-
-        let mut emit_buffer = [0u8; 17];
-        let remaining = payload.emit(&mut emit_buffer, 17);
-        assert_eq!(remaining, &[]);
-        assert_eq!(
-            emit_buffer,
-            [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17]
-        );
-    }
-
-    #[test]
-    fn test_parse_and_emit_vehicle_identification_response_message() {
-        let buffer = [
-            1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, // VIN
-            0x12, 0x34, // Logical address
-            18, 19, 20, 21, 22, 23, // EID
-            24, 25, 26, 27, 28, 29, // GID
-            30, // Further action
-            31, // GID sync status
-        ];
-        let payload_type = PayloadTypeCode::VehicleAnnouncementMessage;
-        let (remaining, payload) = PayloadTypeContent::parse(&buffer, payload_type, 33).unwrap();
-        assert_eq!(remaining, &[]);
-        if let PayloadTypeContent::VehicleIdentificationResponseMessage {
-            vin,
-            logical_address,
-            eid,
-            gid,
-            further_action,
-            gid_sync_status,
-        } = payload
-        {
-            assert_eq!(
-                vin,
-                &[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17]
-            );
-            assert_eq!(logical_address, 0x1234);
-            assert_eq!(eid, &[18, 19, 20, 21, 22, 23]);
-            assert_eq!(gid, &[24, 25, 26, 27, 28, 29]);
-            assert_eq!(further_action, 30);
-            assert_eq!(gid_sync_status, 31);
-        } else {
-            panic!("Unexpected payload type");
-        }
-
-        let mut emit_buffer = [0u8; 33];
-        let remaining = payload.emit(&mut emit_buffer, 33);
-        assert_eq!(remaining, &[]);
-        assert_eq!(emit_buffer, buffer);
-    }
-
-    #[test]
-    fn test_parse_and_emit_diagnostic_message() {
-        let buffer = [
-            0x12, 0x34, // Source address
-            0x56, 0x78, // Target address
-            1, 2, 3, 4, 5, 6, 7, 8, 9, 10, // User data
-        ];
-        let payload_type = PayloadTypeCode::DiagnosticMessage;
-        let (remaining, payload) = PayloadTypeContent::parse(&buffer, payload_type, 14).unwrap();
-        assert_eq!(remaining, &[]);
-        if let PayloadTypeContent::DiagnosticMessage {
-            source_address,
-            target_address,
-            user_data,
-        } = payload
-        {
-            assert_eq!(source_address, 0x1234);
-            assert_eq!(target_address, 0x5678);
-            assert_eq!(user_data, &[1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
-            assert_eq!(user_data.len(), 10);
-        } else {
-            panic!("Unexpected payload type");
-        }
-
-        let mut emit_buffer = [0u8; 14];
-        let remaining = payload.emit(&mut emit_buffer, 14);
-        assert_eq!(remaining, &[]);
-        assert_eq!(emit_buffer, buffer);
-    }
-
-    #[test]
-    fn test_parse_and_emit_routing_activation_request() {
-        let buffer = [
-            0x12, 0x34, // Source address
-            0x56, // Activation type
-            0x00, 0x00, 0x00, 0x01, // ISO reserved
-            0x00, 0x00, 0x00, 0x02, // OEM specific
-        ];
-        let payload_type = PayloadTypeCode::RoutingActivationRequest;
-        let (remaining, payload) = PayloadTypeContent::parse(&buffer, payload_type, 11).unwrap();
-        assert_eq!(remaining, &[]);
-        if let PayloadTypeContent::RoutingActivationRequest {
-            source_address,
-            activation_type,
-            iso_reserved,
-            oem_specific,
-        } = payload
-        {
-            assert_eq!(source_address, 0x1234);
-            assert_eq!(activation_type, 0x56);
-            assert_eq!(iso_reserved, 1);
-            assert_eq!(oem_specific, 2);
-        } else {
-            panic!("Unexpected payload type");
-        }
-
-        let mut emit_buffer = [0u8; 11];
-        let remaining = payload.emit(&mut emit_buffer, 11);
-        assert_eq!(remaining, &[]);
-        assert_eq!(emit_buffer, buffer);
-    }
-
-    #[test]
-    fn test_parse_and_emit_routing_activation_response() {
-        let buffer = [
-            0x12, 0x34, // Logical address tester
-            0x56, 0x78, // Logical address DoIP entity
-            0x9A, // Routing activation response code
-            0x00, 0x00, 0x00, 0x01, // ISO reserved
-            0x00, 0x00, 0x00, 0x02, // OEM specific
-        ];
-        let payload_type = PayloadTypeCode::RoutingActivationResponse;
-        let (remaining, payload) = PayloadTypeContent::parse(&buffer, payload_type, 13).unwrap();
-        assert_eq!(remaining, &[]);
-        if let PayloadTypeContent::RoutingActivationResponse {
-            logical_address_tester,
-            logical_address_doip_entity,
-            routing_activation_response_code,
-            iso_reserved,
-            oem_specific,
-        } = payload
-        {
-            assert_eq!(logical_address_tester, 0x1234);
-            assert_eq!(logical_address_doip_entity, 0x5678);
-            assert_eq!(routing_activation_response_code, 0x9A);
-            assert_eq!(iso_reserved, 1);
-            assert_eq!(oem_specific, 2);
-        } else {
-            panic!("Unexpected payload type");
-        }
-
-        let mut emit_buffer = [0u8; 13];
-        let remaining = payload.emit(&mut emit_buffer, 13);
-        assert_eq!(remaining, &[]);
-        assert_eq!(emit_buffer, buffer);
-    }
-
-    #[test]
-    fn test_parse_and_emit_alive_check_request() {
-        let buffer = [];
-        let payload_type = PayloadTypeCode::AliveCheckRequest;
-        let (remaining, payload) = PayloadTypeContent::parse(&buffer, payload_type, 0).unwrap();
-        assert_eq!(remaining, &[]);
-        assert!(matches!(payload, PayloadTypeContent::AliveCheckRequest));
-
-        let mut emit_buffer = [0u8; 0];
-        let remaining = payload.emit(&mut emit_buffer, 0);
-        assert_eq!(remaining, &[]);
-    }
-
-    #[test]
-    fn test_parse_and_emit_alive_check_response() {
-        let buffer = [
-            0x12, 0x34, // Source address
-        ];
-        let payload_type = PayloadTypeCode::AliveCheckResponse;
-        let (remaining, payload) = PayloadTypeContent::parse(&buffer, payload_type, 2).unwrap();
-        assert_eq!(remaining, &[]);
-        if let PayloadTypeContent::AliveCheckResponse { source_address } = payload {
-            assert_eq!(source_address, 0x1234);
-        } else {
-            panic!("Unexpected payload type");
-        }
-
-        let mut emit_buffer = [0u8; 2];
-        let remaining = payload.emit(&mut emit_buffer, 2);
-        assert_eq!(remaining, &[]);
-        assert_eq!(emit_buffer, buffer);
-    }
-
-    #[test]
-    fn test_parse_and_emit_doip_entity_status_request() {
-        let buffer = [];
-        let payload_type = PayloadTypeCode::DoIPEntityStatusRequest;
-        let (remaining, payload) = PayloadTypeContent::parse(&buffer, payload_type, 0).unwrap();
-        assert_eq!(remaining, &[]);
-        assert!(matches!(payload, PayloadTypeContent::DoIPEntityStatusRequest));
-
-        let mut emit_buffer = [0u8; 0];
-        let remaining = payload.emit(&mut emit_buffer, 0);
-        assert_eq!(remaining, &[]);
-    }
-
-    #[test]
-    fn test_parse_and_emit_doip_entity_status_response() {
-        let buffer = [
-            0x01, // Node type
-            0x02, // Max open sockets
-            0x03, // Currently open sockets
-            0x00, 0x00, 0x00, 0x04, // Max data size
-        ];
-        let payload_type = PayloadTypeCode::DoIPEntityStatusResponse;
-        let (remaining, payload) = PayloadTypeContent::parse(&buffer, payload_type, 7).unwrap();
-        assert_eq!(remaining, &[]);
-        if let PayloadTypeContent::DoIPEntityStatusResponse {
-            node_type,
-            max_open_sockets,
-            currently_open_sockets,
-            max_data_size,
-        } = payload
-        {
-            assert_eq!(node_type, 0x01);
-            assert_eq!(max_open_sockets, 0x02);
-            assert_eq!(currently_open_sockets, 0x03);
-            assert_eq!(max_data_size, 0x04);
-        } else {
-            panic!("Unexpected payload type");
-        }
-
-        let mut emit_buffer = [0u8; 7];
-        let remaining = payload.emit(&mut emit_buffer, 7);
-        assert_eq!(remaining, &[]);
-        assert_eq!(emit_buffer, buffer);
-    }
-
-    #[test]
-    fn test_parse_and_emit_diagnostic_power_mode_information_request() {
-        let buffer = [];
-        let payload_type = PayloadTypeCode::DiagnosticPowerModeInformationRequest;
-        let (remaining, payload) = PayloadTypeContent::parse(&buffer, payload_type, 0).unwrap();
-        assert_eq!(remaining, &[]);
-        assert!(matches!(
-            payload,
-            PayloadTypeContent::DiagnosticPowerModeInformationRequest
-        ));
-
-        let mut emit_buffer = [0u8; 0];
-        let remaining = payload.emit(&mut emit_buffer, 0);
-        assert_eq!(remaining, &[]);
-    }
-
-    #[test]
-    fn test_parse_and_emit_diagnostic_power_mode_information_response() {
-        let buffer = [
-            0x01, // Diagnostic power mode
-        ];
-        let payload_type = PayloadTypeCode::DiagnosticPowerModeInformationResponse;
-        let (remaining, payload) = PayloadTypeContent::parse(&buffer, payload_type, 1).unwrap();
-        assert_eq!(remaining, &[]);
-        if let PayloadTypeContent::DiagnosticPowerModeInformationResponse {
-            diagnostic_power_mode,
-        } = payload
-        {
-            assert_eq!(diagnostic_power_mode, 0x01);
-        } else {
-            panic!("Unexpected payload type");
-        }
-
-        let mut emit_buffer = [0u8; 1];
-        let remaining = payload.emit(&mut emit_buffer, 1);
-        assert_eq!(remaining, &[]);
-        assert_eq!(emit_buffer, buffer);
-    }
-
-    #[test]
-    fn test_parse_and_emit_diagnostic_message_positive_acknowledgement() {
-        let buffer = [
-            0x12, 0x34, // Source address
-            0x56, 0x78, // Target address
-            0x9A, // Ack code
-            1, 2, 3, 4, 5, // Previous diagnostic message
-        ];
-        let payload_type = PayloadTypeCode::DiagnosticMessageAck;
-        let (remaining, payload) = PayloadTypeContent::parse(&buffer, payload_type, 10).unwrap();
-        assert_eq!(remaining, &[]);
-        if let PayloadTypeContent::DiagnosticMessagePositiveAcknowledgement {
-            source_address,
-            target_address,
-            ack_code,
-            previous_diagnostic_message,
-        } = payload
-        {
-            assert_eq!(source_address, 0x1234);
-            assert_eq!(target_address, 0x5678);
-            assert_eq!(ack_code, 0x9A);
-            assert_eq!(previous_diagnostic_message, &[1, 2, 3, 4, 5]);
-        } else {
-            panic!("Unexpected payload type");
-        }
-
-        let mut emit_buffer = [0u8; 10];
-        let remaining = payload.emit(&mut emit_buffer, 10);
-        assert_eq!(remaining, &[]);
-        assert_eq!(emit_buffer, buffer);
-    }
-
-    #[test]
-    fn test_parse_and_emit_diagnostic_message_negative_acknowledgement() {
-        let buffer = [
-            0x12, 0x34, // Source address
-            0x56, 0x78, // Target address
-            0x9A, // Nack code
-            1, 2, 3, 4, 5, // Previous diagnostic message
-        ];
-        let payload_type = PayloadTypeCode::DiagnosticMessageNack;
-        let (remaining, payload) = PayloadTypeContent::parse(&buffer, payload_type, 10).unwrap();
-        assert_eq!(remaining, &[]);
-        if let PayloadTypeContent::DiagnosticMessageNegativeAcknowledgement {
-            source_address,
-            target_address,
-            nack_code,
-            previous_diagnostic_message,
-        } = payload
-        {
-            assert_eq!(source_address, 0x1234);
-            assert_eq!(target_address, 0x5678);
-            assert_eq!(nack_code, 0x9A);
-            assert_eq!(previous_diagnostic_message, &[1, 2, 3, 4, 5]);
-        } else {
-            panic!("Unexpected payload type");
-        }
-
-        let mut emit_buffer = [0u8; 10];
-        let remaining = payload.emit(&mut emit_buffer, 10);
-        assert_eq!(remaining, &[]);
-        assert_eq!(emit_buffer, buffer);
-    }
-
-    #[test]
     fn test_repr_parse() {
-        let buffer = [
-            0x02, 0xfd, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        ];
+        let buffer = [0x02, 0xfd, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00];
         let packet = Packet::new_checked(&buffer).unwrap();
         let repr = Repr::parse(&packet).unwrap();
 
         assert_eq!(repr.protocol_version, 0x02);
         assert_eq!(repr.inverse_protocol_version, 0xfd);
-        assert_eq!(repr.payload.type_code, PayloadTypeCode::GenericDoIPHeaderNegativeResponse);
+        assert_eq!(
+            repr.payload.type_code,
+            PayloadTypeCode::GenericDoIPHeaderNegativeResponse
+        );
         assert_eq!(repr.payload.length, 0);
-        assert_eq!(repr.payload.content, PayloadTypeContent::GenericDoIPHeaderNegativeResponse);
+        assert_eq!(
+            repr.payload.content,
+            PayloadTypeContent::GenericDoIPHeaderNegativeResponse
+        );
     }
 
     #[test]
@@ -1530,14 +1142,291 @@ mod test {
             },
         };
 
-        let mut buffer = [0u8; 40];
-        let mut packet = Packet::new_checked(&mut buffer).unwrap();
+        let mut buffer = [0u8; 8]; // Adjust buffer size to match the header size
+        let mut packet = Packet::new_unchecked(&mut buffer);
         repr.emit(&mut packet);
 
         assert_eq!(packet.protocol_version(), 0x02);
         assert_eq!(packet.inverse_protocol_version(), 0xfd);
-        assert_eq!(packet.payload_type(), PayloadTypeCode::GenericDoIPHeaderNegativeResponse);
+        assert_eq!(
+            packet.payload_type(),
+            PayloadTypeCode::GenericDoIPHeaderNegativeResponse
+        );
         assert_eq!(packet.payload_length(), 0);
-        assert_eq!(packet.payload(), &[0, 0, 0, 0, 0, 0]);
+    }
+
+    fn round_trip_test(repr: Repr) {
+        let mut buffer = [0u8; 1024]; // Adjust buffer size to match the header size and payload
+        {
+            let mut packet = Packet::new_unchecked(&mut buffer);
+            repr.emit(&mut packet);
+        }
+
+        let packet = Packet::new_checked(&buffer).unwrap();
+        let parsed_repr = Repr::parse(&packet).unwrap();
+        assert_eq!(repr, parsed_repr);
+    }
+
+    #[test]
+    fn test_repr_round_trip_generic_doip_header_negative_response() {
+        let repr = Repr {
+            protocol_version: 0x02,
+            inverse_protocol_version: 0xfd,
+            payload: Payload {
+                type_code: PayloadTypeCode::GenericDoIPHeaderNegativeResponse,
+                length: field::payload::gdhna::LENGTH as u32,
+                content: PayloadTypeContent::GenericDoIPHeaderNegativeResponse,
+            },
+        };
+        round_trip_test(repr);
+    }
+
+    #[test]
+    fn test_repr_round_trip_vehicle_identification_request() {
+        let repr = Repr {
+            protocol_version: 0x02,
+            inverse_protocol_version: 0xfd,
+            payload: Payload {
+                type_code: PayloadTypeCode::VehicleIdentificationRequest,
+                length: field::payload::vir::LENGTH as u32,
+                content: PayloadTypeContent::VehicleIdentificationRequest,
+            },
+        };
+        round_trip_test(repr);
+    }
+
+    #[test]
+    fn test_repr_round_trip_vehicle_identification_request_eid() {
+        let repr = Repr {
+            protocol_version: 0x02,
+            inverse_protocol_version: 0xfd,
+            payload: Payload {
+                type_code: PayloadTypeCode::VehicleIdentificationRequestEID,
+                length: field::payload::vir_eid::LENGTH as u32,
+                content: PayloadTypeContent::VehicleIdentificationRequestWithEID { eid: &[0; 6] },
+            },
+        };
+        round_trip_test(repr);
+    }
+
+    #[test]
+    fn test_repr_round_trip_vehicle_identification_request_vin() {
+        let repr = Repr {
+            protocol_version: 0x02,
+            inverse_protocol_version: 0xfd,
+            payload: Payload {
+                type_code: PayloadTypeCode::VehicleIdentificationRequestVIN,
+                length: field::payload::vir_vin::LENGTH as u32,
+                content: PayloadTypeContent::VehicleIdentificationRequestWithVIN { vin: &[0; 17] },
+            },
+        };
+        round_trip_test(repr);
+    }
+
+    #[test]
+    fn test_repr_round_trip_vehicle_announcement_message() {
+        let repr = Repr {
+            protocol_version: 0x02,
+            inverse_protocol_version: 0xfd,
+            payload: Payload {
+                type_code: PayloadTypeCode::VehicleAnnouncementMessage,
+                length: field::payload::vam::LENGTH as u32,
+                content: PayloadTypeContent::VehicleIdentificationResponseMessage {
+                    vin: &[0; 17],
+                    logical_address: 0,
+                    eid: &[0; 6],
+                    gid: &[0; 6],
+                    further_action: 0,
+                    gid_sync_status: 0,
+                },
+            },
+        };
+        round_trip_test(repr);
+    }
+
+    #[test]
+    fn test_repr_round_trip_routing_activation_request() {
+        let repr = Repr {
+            protocol_version: 0x02,
+            inverse_protocol_version: 0xfd,
+            payload: Payload {
+                type_code: PayloadTypeCode::RoutingActivationRequest,
+                length: field::payload::ra_req::LENGTH as u32,
+                content: PayloadTypeContent::RoutingActivationRequest {
+                    source_address: 0,
+                    activation_type: 0,
+                    iso_reserved: 0,
+                    oem_specific: 0,
+                },
+            },
+        };
+        round_trip_test(repr);
+    }
+
+    #[test]
+    fn test_repr_round_trip_routing_activation_response() {
+        let repr = Repr {
+            protocol_version: 0x02,
+            inverse_protocol_version: 0xfd,
+            payload: Payload {
+                type_code: PayloadTypeCode::RoutingActivationResponse,
+                length: field::payload::ra_res::LENGTH as u32,
+                content: PayloadTypeContent::RoutingActivationResponse {
+                    logical_address_tester: 0,
+                    logical_address_doip_entity: 0,
+                    routing_activation_response_code: 0,
+                    iso_reserved: 0,
+                    oem_specific: 0,
+                },
+            },
+        };
+        round_trip_test(repr);
+    }
+
+    #[test]
+    fn test_repr_round_trip_alive_check_request() {
+        let repr = Repr {
+            protocol_version: 0x02,
+            inverse_protocol_version: 0xfd,
+            payload: Payload {
+                type_code: PayloadTypeCode::AliveCheckRequest,
+                length: 0,
+                content: PayloadTypeContent::AliveCheckRequest,
+            },
+        };
+        round_trip_test(repr);
+    }
+
+    #[test]
+    fn test_repr_round_trip_alive_check_response() {
+        let repr = Repr {
+            protocol_version: 0x02,
+            inverse_protocol_version: 0xfd,
+            payload: Payload {
+                type_code: PayloadTypeCode::AliveCheckResponse,
+                length: 2,
+                content: PayloadTypeContent::AliveCheckResponse { source_address: 0 },
+            },
+        };
+        round_trip_test(repr);
+    }
+
+    #[test]
+    fn test_repr_round_trip_doip_entity_status_request() {
+        let repr = Repr {
+            protocol_version: 0x02,
+            inverse_protocol_version: 0xfd,
+            payload: Payload {
+                type_code: PayloadTypeCode::DoIPEntityStatusRequest,
+                length: 0,
+                content: PayloadTypeContent::DoIPEntityStatusRequest,
+            },
+        };
+        round_trip_test(repr);
+    }
+
+    #[test]
+    fn test_repr_round_trip_doip_entity_status_response() {
+        let repr = Repr {
+            protocol_version: 0x02,
+            inverse_protocol_version: 0xfd,
+            payload: Payload {
+                type_code: PayloadTypeCode::DoIPEntityStatusResponse,
+                length: 7,
+                content: PayloadTypeContent::DoIPEntityStatusResponse {
+                    node_type: 0,
+                    max_open_sockets: 0,
+                    currently_open_sockets: 0,
+                    max_data_size: 0,
+                },
+            },
+        };
+        round_trip_test(repr);
+    }
+
+    #[test]
+    fn test_repr_round_trip_diagnostic_power_mode_information_request() {
+        let repr = Repr {
+            protocol_version: 0x02,
+            inverse_protocol_version: 0xfd,
+            payload: Payload {
+                type_code: PayloadTypeCode::DiagnosticPowerModeInformationRequest,
+                length: 0,
+                content: PayloadTypeContent::DiagnosticPowerModeInformationRequest,
+            },
+        };
+        round_trip_test(repr);
+    }
+
+    #[test]
+    fn test_repr_round_trip_diagnostic_power_mode_information_response() {
+        let repr = Repr {
+            protocol_version: 0x02,
+            inverse_protocol_version: 0xfd,
+            payload: Payload {
+                type_code: PayloadTypeCode::DiagnosticPowerModeInformationResponse,
+                length: 1,
+                content: PayloadTypeContent::DiagnosticPowerModeInformationResponse {
+                    diagnostic_power_mode: 0,
+                },
+            },
+        };
+        round_trip_test(repr);
+    }
+
+    #[test]
+    fn test_repr_round_trip_diagnostic_message() {
+        let repr = Repr {
+            protocol_version: 0x02,
+            inverse_protocol_version: 0xfd,
+            payload: Payload {
+                type_code: PayloadTypeCode::DiagnosticMessage,
+                length: field::payload::dm::DATA(3).end as u32,
+                content: PayloadTypeContent::DiagnosticMessage {
+                    source_address: 0,
+                    target_address: 0,
+                    user_data: &[0x22, 0xF1, 0x90],
+                },
+            },
+        };
+        round_trip_test(repr);
+    }
+
+    #[test]
+    fn test_repr_round_trip_diagnostic_message_ack() {
+        let repr = Repr {
+            protocol_version: 0x02,
+            inverse_protocol_version: 0xfd,
+            payload: Payload {
+                type_code: PayloadTypeCode::DiagnosticMessageAck,
+                length: field::payload::dm_xack::DATA(0).end as u32,
+                content: PayloadTypeContent::DiagnosticMessagePositiveAcknowledgement {
+                    source_address: 0,
+                    target_address: 0,
+                    ack_code: 0,
+                    previous_diagnostic_message: &[],
+                },
+            },
+        };
+        round_trip_test(repr);
+    }
+
+    #[test]
+    fn test_repr_round_trip_diagnostic_message_nack() {
+        let repr = Repr {
+            protocol_version: 0x02,
+            inverse_protocol_version: 0xfd,
+            payload: Payload {
+                type_code: PayloadTypeCode::DiagnosticMessageNack,
+                length: field::payload::dm_xack::DATA(0).end as u32,
+                content: PayloadTypeContent::DiagnosticMessageNegativeAcknowledgement {
+                    source_address: 0,
+                    target_address: 0,
+                    nack_code: 0,
+                    previous_diagnostic_message: &[],
+                },
+            },
+        };
+        round_trip_test(repr);
     }
 }
