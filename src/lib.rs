@@ -31,6 +31,8 @@ mod field {
         use crate::field::Field;
         pub const PRC_VER: Field = 0..1;
         pub const IPC_VER: Field = 1..2;
+        pub const TYPE: Field = 2..4;
+        pub const PAYLOAD_LENGTH: Field = 4..8;
 
         /// The length of the DoIP header excluding payload.
         pub const LENGTH: usize = IPC_VER.end;
@@ -151,7 +153,7 @@ mod field {
             pub const SA: Field = 0..2;
             pub const TA: Field = 2..4;
             pub const fn DATA(length: usize) -> Field {
-                TA.end..(length)
+                TA.end..length
             }
         }
     
@@ -162,7 +164,7 @@ mod field {
             pub const TA: Field = 2..4;
             pub const ACKC: Field = 4..5;
             pub const fn DATA(length: usize) -> Field {
-                ACKC.end..(length)
+                ACKC.end..length
             }
         }
     }
@@ -318,7 +320,7 @@ impl<T: AsRef<[u8]>> Packet<T> {
 
     pub fn payload_type(&self) -> PayloadTypeCode {
         let data = self.buffer.as_ref();
-         match PayloadTypeCode::from_u16(NetworkEndian::read_u16(&data[field::payload::TYPE])) {
+         match PayloadTypeCode::from_u16(NetworkEndian::read_u16(&data[field::header::TYPE])) {
             Some(payload_type) => payload_type,
             None => PayloadTypeCode::GenericDoIPHeaderNegativeResponse,
          }
@@ -326,7 +328,15 @@ impl<T: AsRef<[u8]>> Packet<T> {
 
     pub fn payload_length(&self) -> usize {
         let data = self.buffer.as_ref();
-        NetworkEndian::read_u32(&data[field::payload::PAYLOAD_LENGTH]) as usize
+        NetworkEndian::read_u32(&data[field::header::PAYLOAD_LENGTH]) as usize
+    }
+
+    pub fn payload_range(&self) -> core::ops::Range<usize> {
+        field::header::TYPE.start..field::header::PAYLOAD_LENGTH.end + self.payload_length()
+    }
+
+    pub fn payload_content_length(&self) -> usize {
+        self.payload_length()
     }
 }
 
@@ -343,12 +353,12 @@ impl<T: AsRef<[u8]> + AsMut<[u8]>> Packet<T> {
 
     pub fn set_payload_type(&mut self, value: PayloadTypeCode) {
         let data = self.buffer.as_mut();
-        NetworkEndian::write_u16(&mut data[field::payload::TYPE], value as u16);
+        NetworkEndian::write_u16(&mut data[field::header::TYPE], value as u16);
     }
 
     pub fn set_payload_length(&mut self, value: usize) {
         let data = self.buffer.as_mut();
-        NetworkEndian::write_u32(&mut data[field::payload::TYPE], value as u32);
+        NetworkEndian::write_u32(&mut data[field::header::PAYLOAD_LENGTH], value as u32);
     }
 }
 
@@ -356,15 +366,18 @@ impl<'a, T: AsRef<[u8]> + ?Sized> Packet<&'a T> {
     #[inline]
     pub fn payload(&self) -> &'a [u8] {
         let data = self.buffer.as_ref();
-        &data[field::header::LENGTH..]
+        &data[field::header::PAYLOAD_LENGTH.end..field::header::PAYLOAD_LENGTH.end + self.payload_length()]
     }
 }
 
 impl<'a, T: AsRef<[u8]> + AsMut<[u8]> + ?Sized> Packet<&'a mut T> {
+    /// Returns a mutable reference to the payload.
     #[inline]
     pub fn payload(&mut self) -> &mut [u8] {
+        let payload_range = self.payload_range();
         let data = self.buffer.as_mut();
-        &mut data[field::header::LENGTH..]
+
+        &mut data[payload_range]
     }
 }
 
@@ -446,7 +459,7 @@ impl<'a> PayloadTypeContent<'a> {
     ///
     /// * `Ok((remaining_buffer, payload))` - A tuple containing the remaining buffer and the parsed PayloadTypeContent.
     /// * `Err(Error)` - An error if the buffer is too short or contains invalid data.
-    pub fn parse(buffer: &'a [u8], payload_type: PayloadTypeCode) -> Result<(&'a [u8], PayloadTypeContent<'a>)> {
+    pub fn parse(buffer: &'a [u8], payload_type: PayloadTypeCode, payload_content_length: usize) -> Result<(&'a [u8], PayloadTypeContent<'a>)> {
         let (length, payload);
         match payload_type {
             PayloadTypeCode::GenericDoIPHeaderNegativeResponse => {
@@ -642,7 +655,7 @@ impl<'a> PayloadTypeContent<'a> {
                 let ack_code = buffer[field::payload::dm_xack::ACKC.start];
                 length = buffer.len();
                 let previous_diagnostic_message =
-                    &buffer[field::payload::dm_xack::DATA(length)];
+                    &buffer[field::payload::dm_xack::DATA(payload_content_length)];
                 payload = PayloadTypeContent::DiagnosticMessagePositiveAcknowledgement {
                     source_address,
                     target_address,
@@ -661,7 +674,7 @@ impl<'a> PayloadTypeContent<'a> {
                 let nack_code = buffer[field::payload::dm_xack::ACKC.start];
                 length = buffer.len();
                 let previous_diagnostic_message =
-                    &buffer[field::payload::dm_xack::DATA(length)];
+                    &buffer[field::payload::dm_xack::DATA(payload_content_length)];
                 payload = PayloadTypeContent::DiagnosticMessageNegativeAcknowledgement {
                     source_address,
                     target_address,
@@ -682,7 +695,7 @@ impl<'a> PayloadTypeContent<'a> {
     /// # Returns
     ///
     /// * The remaining buffer after writing the payload.
-    pub fn emit<'b>(&self, buffer: &'b mut [u8]) -> &'b mut [u8] {
+    pub fn emit<'b>(&self, buffer: &'b mut [u8], payload_content_length: usize) -> &'b mut [u8] {
         let length;
         match *self {
             PayloadTypeContent::GenericDoIPHeaderNegativeResponse => {
@@ -722,7 +735,7 @@ impl<'a> PayloadTypeContent<'a> {
             } => {
                 NetworkEndian::write_u16(&mut buffer[field::payload::dm::SA], source_address);
                 NetworkEndian::write_u16(&mut buffer[field::payload::dm::TA], target_address);
-                let data_range = field::payload::dm::DATA(user_data.len());
+                let data_range = field::payload::dm::DATA(payload_content_length);
                 length = data_range.end;
                 buffer[data_range].copy_from_slice(user_data);
             }
@@ -792,7 +805,7 @@ impl<'a> PayloadTypeContent<'a> {
                 NetworkEndian::write_u16(&mut buffer[field::payload::dm_xack::SA], source_address);
                 NetworkEndian::write_u16(&mut buffer[field::payload::dm_xack::TA], target_address);
                 buffer[field::payload::dm_xack::ACKC.start] = ack_code;
-                let data_range = field::payload::dm_xack::DATA(previous_diagnostic_message.len());
+                let data_range = field::payload::dm_xack::DATA(payload_content_length);
                 length = data_range.end;
                 buffer[data_range].copy_from_slice(previous_diagnostic_message);
             }
@@ -805,7 +818,7 @@ impl<'a> PayloadTypeContent<'a> {
                 NetworkEndian::write_u16(&mut buffer[field::payload::dm_xack::SA], source_address);
                 NetworkEndian::write_u16(&mut buffer[field::payload::dm_xack::TA], target_address);
                 buffer[field::payload::dm_xack::ACKC.start] = nack_code;
-                let data_range = field::payload::dm_xack::DATA(previous_diagnostic_message.len());
+                let data_range = field::payload::dm_xack::DATA(payload_content_length);
                 length = data_range.end;
                 buffer[data_range].copy_from_slice(previous_diagnostic_message);
             }
@@ -814,14 +827,57 @@ impl<'a> PayloadTypeContent<'a> {
     }
 }
 
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+pub struct Payload<'a> {
+    pub type_code: PayloadTypeCode,
+    pub length: u32,
+    pub content: PayloadTypeContent<'a>,
+}
+
+impl<'a> Payload<'a> {
+    pub fn parse<T>(packet: &Packet<&'a T>) -> Result<Payload<'a>>
+    where
+        T: AsRef<[u8]> + ?Sized,
+    {
+        let type_code = packet.payload_type();
+        let length = packet.payload_length();
+        let content_length = packet.payload_content_length();
+        let (_, content) = PayloadTypeContent::parse(packet.payload(), type_code, content_length)?;
+
+        Ok(Payload {
+            type_code,
+            length: length as u32,
+            content,
+        })
+    }
+
+    pub fn emit<'b>(&self, buffer: &'b mut [u8]) -> &'b mut [u8] {
+        NetworkEndian::write_u16(&mut buffer[field::payload::TYPE], self.type_code as u16);
+        NetworkEndian::write_u32(&mut buffer[field::payload::PAYLOAD_LENGTH], self.length);
+        self.content.emit(&mut buffer[field::payload::PAYLOAD_LENGTH.end..], self.length as usize);
+        &mut buffer[(field::payload::PAYLOAD_LENGTH.end + self.length as usize)..]
+    }
+}
+
+impl<'a> fmt::Display for Payload<'a> {
+    /// Formats the Payload as a string.
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(
+            f,
+            "Payload: type_code={}, length={}, content={}",
+            self.type_code,
+            self.length,
+            self.content,
+        )
+    }
+}
+
 /// A high-level representation of a DoIP packet.
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub struct Repr<'a> {
     pub protocol_version: u8,
     pub inverse_protocol_version: u8,
-    pub payload_type: PayloadTypeCode,
-    pub payload_length: u32,
-    pub payload: PayloadTypeContent<'a>,
+    pub payload: Payload<'a>,
 }
 
 impl<'a> Repr<'a> {
@@ -830,17 +886,10 @@ impl<'a> Repr<'a> {
     where
         T: AsRef<[u8]> + ?Sized,
     {
-        let payload_type = packet.payload_type();
-        let payload_length = packet.payload_length();
-        let (remaining, payload) = PayloadTypeContent::parse(packet.payload(), payload_type)?;
-        if !remaining.is_empty() {
-            return Err(Error);
-        }
+        let payload = Payload::parse(packet)?;
         Ok(Repr {
             protocol_version: packet.protocol_version(),
             inverse_protocol_version: packet.inverse_protocol_version(),
-            payload_type,
-            payload_length: payload_length as u32,
             payload,
         })
     }
@@ -852,7 +901,7 @@ impl<'a> Repr<'a> {
 
     /// Returns the length of the buffer.
     pub fn buffer_len(&self) -> usize {
-        self.header_len() + self.payload_length as usize
+        self.header_len() + self.payload.length as usize
     }
 
     /// Emits the high-level representation of the DoIP packet into the provided packet/buffer.
@@ -862,10 +911,7 @@ impl<'a> Repr<'a> {
     {
         packet.set_protocol_version(self.protocol_version);
         packet.set_inverse_protocol_version(self.inverse_protocol_version);
-        packet.set_payload_type(self.payload_type);
-        packet.set_payload_length(self.payload_length as usize);
-        let remaining = packet.payload();
-        self.payload.emit(remaining);
+        self.payload.emit(packet.payload());
     }
 }
 
@@ -1015,11 +1061,9 @@ impl<'a> fmt::Display for Repr<'a> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,
-            "DoIP packet: protocol_version={}, inverse_protocol_version={}, payload_type={}, payload_length={}, payload={}",
+            "DoIP packet: protocol_version={}, inverse_protocol_version={}, payload={}",
             self.protocol_version,
             self.inverse_protocol_version,
-            self.payload_type,
-            self.payload_length,
             self.payload,
         )
     }
@@ -1073,7 +1117,7 @@ mod test {
     fn test_parse_and_emit_generic_doip_header_negative_response() {
         let buffer = [];
         let payload_type = PayloadTypeCode::GenericDoIPHeaderNegativeResponse;
-        let (remaining, payload) = PayloadTypeContent::parse(&buffer, payload_type).unwrap();
+        let (remaining, payload) = PayloadTypeContent::parse(&buffer, payload_type, 0).unwrap();
         assert_eq!(remaining, &[]);
         assert!(matches!(
             payload,
@@ -1081,7 +1125,7 @@ mod test {
         ));
 
         let mut emit_buffer = [0u8; 0];
-        let remaining = payload.emit(&mut emit_buffer);
+        let remaining = payload.emit(&mut emit_buffer, 0);
         assert_eq!(remaining, &[]);
     }
 
@@ -1089,12 +1133,12 @@ mod test {
     fn test_parse_and_emit_vehicle_identification_request() {
         let buffer = [];
         let payload_type = PayloadTypeCode::VehicleIdentificationRequest;
-        let (remaining, payload) = PayloadTypeContent::parse(&buffer, payload_type).unwrap();
+        let (remaining, payload) = PayloadTypeContent::parse(&buffer, payload_type, 0).unwrap();
         assert_eq!(remaining, &[]);
         assert!(matches!(payload, PayloadTypeContent::VehicleIdentificationRequest));
 
         let mut emit_buffer = [0u8; 0];
-        let remaining = payload.emit(&mut emit_buffer);
+        let remaining = payload.emit(&mut emit_buffer, 0);
         assert_eq!(remaining, &[]);
     }
 
@@ -1102,7 +1146,7 @@ mod test {
     fn test_parse_and_emit_vehicle_identification_request_with_eid() {
         let buffer = [1, 2, 3, 4, 5, 6];
         let payload_type = PayloadTypeCode::VehicleIdentificationRequestEID;
-        let (remaining, payload) = PayloadTypeContent::parse(&buffer, payload_type).unwrap();
+        let (remaining, payload) = PayloadTypeContent::parse(&buffer, payload_type, 6).unwrap();
         assert_eq!(remaining, &[]);
         if let PayloadTypeContent::VehicleIdentificationRequestWithEID { eid } = payload {
             assert_eq!(eid, &[1, 2, 3, 4, 5, 6]);
@@ -1111,7 +1155,7 @@ mod test {
         }
 
         let mut emit_buffer = [0u8; 6];
-        let remaining = payload.emit(&mut emit_buffer);
+        let remaining = payload.emit(&mut emit_buffer, 6);
         assert_eq!(remaining, &[]);
         assert_eq!(emit_buffer, [1, 2, 3, 4, 5, 6]);
     }
@@ -1120,7 +1164,7 @@ mod test {
     fn test_parse_and_emit_vehicle_identification_request_with_vin() {
         let buffer = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17];
         let payload_type = PayloadTypeCode::VehicleIdentificationRequestVIN;
-        let (remaining, payload) = PayloadTypeContent::parse(&buffer, payload_type).unwrap();
+        let (remaining, payload) = PayloadTypeContent::parse(&buffer, payload_type, 17).unwrap();
         assert_eq!(remaining, &[]);
         if let PayloadTypeContent::VehicleIdentificationRequestWithVIN { vin } = payload {
             assert_eq!(
@@ -1132,7 +1176,7 @@ mod test {
         }
 
         let mut emit_buffer = [0u8; 17];
-        let remaining = payload.emit(&mut emit_buffer);
+        let remaining = payload.emit(&mut emit_buffer, 17);
         assert_eq!(remaining, &[]);
         assert_eq!(
             emit_buffer,
@@ -1151,7 +1195,7 @@ mod test {
             31, // GID sync status
         ];
         let payload_type = PayloadTypeCode::VehicleAnnouncementMessage;
-        let (remaining, payload) = PayloadTypeContent::parse(&buffer, payload_type).unwrap();
+        let (remaining, payload) = PayloadTypeContent::parse(&buffer, payload_type, 33).unwrap();
         assert_eq!(remaining, &[]);
         if let PayloadTypeContent::VehicleIdentificationResponseMessage {
             vin,
@@ -1176,7 +1220,7 @@ mod test {
         }
 
         let mut emit_buffer = [0u8; 33];
-        let remaining = payload.emit(&mut emit_buffer);
+        let remaining = payload.emit(&mut emit_buffer, 33);
         assert_eq!(remaining, &[]);
         assert_eq!(emit_buffer, buffer);
     }
@@ -1189,7 +1233,7 @@ mod test {
             1, 2, 3, 4, 5, 6, 7, 8, 9, 10, // User data
         ];
         let payload_type = PayloadTypeCode::DiagnosticMessage;
-        let (remaining, payload) = PayloadTypeContent::parse(&buffer, payload_type).unwrap();
+        let (remaining, payload) = PayloadTypeContent::parse(&buffer, payload_type, 14).unwrap();
         assert_eq!(remaining, &[]);
         if let PayloadTypeContent::DiagnosticMessage {
             source_address,
@@ -1200,12 +1244,13 @@ mod test {
             assert_eq!(source_address, 0x1234);
             assert_eq!(target_address, 0x5678);
             assert_eq!(user_data, &[1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
+            assert_eq!(user_data.len(), 10);
         } else {
             panic!("Unexpected payload type");
         }
 
         let mut emit_buffer = [0u8; 14];
-        let remaining = payload.emit(&mut emit_buffer);
+        let remaining = payload.emit(&mut emit_buffer, 14);
         assert_eq!(remaining, &[]);
         assert_eq!(emit_buffer, buffer);
     }
@@ -1219,7 +1264,7 @@ mod test {
             0x00, 0x00, 0x00, 0x02, // OEM specific
         ];
         let payload_type = PayloadTypeCode::RoutingActivationRequest;
-        let (remaining, payload) = PayloadTypeContent::parse(&buffer, payload_type).unwrap();
+        let (remaining, payload) = PayloadTypeContent::parse(&buffer, payload_type, 11).unwrap();
         assert_eq!(remaining, &[]);
         if let PayloadTypeContent::RoutingActivationRequest {
             source_address,
@@ -1237,7 +1282,7 @@ mod test {
         }
 
         let mut emit_buffer = [0u8; 11];
-        let remaining = payload.emit(&mut emit_buffer);
+        let remaining = payload.emit(&mut emit_buffer, 11);
         assert_eq!(remaining, &[]);
         assert_eq!(emit_buffer, buffer);
     }
@@ -1252,7 +1297,7 @@ mod test {
             0x00, 0x00, 0x00, 0x02, // OEM specific
         ];
         let payload_type = PayloadTypeCode::RoutingActivationResponse;
-        let (remaining, payload) = PayloadTypeContent::parse(&buffer, payload_type).unwrap();
+        let (remaining, payload) = PayloadTypeContent::parse(&buffer, payload_type, 13).unwrap();
         assert_eq!(remaining, &[]);
         if let PayloadTypeContent::RoutingActivationResponse {
             logical_address_tester,
@@ -1272,7 +1317,7 @@ mod test {
         }
 
         let mut emit_buffer = [0u8; 13];
-        let remaining = payload.emit(&mut emit_buffer);
+        let remaining = payload.emit(&mut emit_buffer, 13);
         assert_eq!(remaining, &[]);
         assert_eq!(emit_buffer, buffer);
     }
@@ -1281,12 +1326,12 @@ mod test {
     fn test_parse_and_emit_alive_check_request() {
         let buffer = [];
         let payload_type = PayloadTypeCode::AliveCheckRequest;
-        let (remaining, payload) = PayloadTypeContent::parse(&buffer, payload_type).unwrap();
+        let (remaining, payload) = PayloadTypeContent::parse(&buffer, payload_type, 0).unwrap();
         assert_eq!(remaining, &[]);
         assert!(matches!(payload, PayloadTypeContent::AliveCheckRequest));
 
         let mut emit_buffer = [0u8; 0];
-        let remaining = payload.emit(&mut emit_buffer);
+        let remaining = payload.emit(&mut emit_buffer, 0);
         assert_eq!(remaining, &[]);
     }
 
@@ -1296,7 +1341,7 @@ mod test {
             0x12, 0x34, // Source address
         ];
         let payload_type = PayloadTypeCode::AliveCheckResponse;
-        let (remaining, payload) = PayloadTypeContent::parse(&buffer, payload_type).unwrap();
+        let (remaining, payload) = PayloadTypeContent::parse(&buffer, payload_type, 2).unwrap();
         assert_eq!(remaining, &[]);
         if let PayloadTypeContent::AliveCheckResponse { source_address } = payload {
             assert_eq!(source_address, 0x1234);
@@ -1305,7 +1350,7 @@ mod test {
         }
 
         let mut emit_buffer = [0u8; 2];
-        let remaining = payload.emit(&mut emit_buffer);
+        let remaining = payload.emit(&mut emit_buffer, 2);
         assert_eq!(remaining, &[]);
         assert_eq!(emit_buffer, buffer);
     }
@@ -1314,12 +1359,12 @@ mod test {
     fn test_parse_and_emit_doip_entity_status_request() {
         let buffer = [];
         let payload_type = PayloadTypeCode::DoIPEntityStatusRequest;
-        let (remaining, payload) = PayloadTypeContent::parse(&buffer, payload_type).unwrap();
+        let (remaining, payload) = PayloadTypeContent::parse(&buffer, payload_type, 0).unwrap();
         assert_eq!(remaining, &[]);
         assert!(matches!(payload, PayloadTypeContent::DoIPEntityStatusRequest));
 
         let mut emit_buffer = [0u8; 0];
-        let remaining = payload.emit(&mut emit_buffer);
+        let remaining = payload.emit(&mut emit_buffer, 0);
         assert_eq!(remaining, &[]);
     }
 
@@ -1332,7 +1377,7 @@ mod test {
             0x00, 0x00, 0x00, 0x04, // Max data size
         ];
         let payload_type = PayloadTypeCode::DoIPEntityStatusResponse;
-        let (remaining, payload) = PayloadTypeContent::parse(&buffer, payload_type).unwrap();
+        let (remaining, payload) = PayloadTypeContent::parse(&buffer, payload_type, 7).unwrap();
         assert_eq!(remaining, &[]);
         if let PayloadTypeContent::DoIPEntityStatusResponse {
             node_type,
@@ -1350,7 +1395,7 @@ mod test {
         }
 
         let mut emit_buffer = [0u8; 7];
-        let remaining = payload.emit(&mut emit_buffer);
+        let remaining = payload.emit(&mut emit_buffer, 7);
         assert_eq!(remaining, &[]);
         assert_eq!(emit_buffer, buffer);
     }
@@ -1359,7 +1404,7 @@ mod test {
     fn test_parse_and_emit_diagnostic_power_mode_information_request() {
         let buffer = [];
         let payload_type = PayloadTypeCode::DiagnosticPowerModeInformationRequest;
-        let (remaining, payload) = PayloadTypeContent::parse(&buffer, payload_type).unwrap();
+        let (remaining, payload) = PayloadTypeContent::parse(&buffer, payload_type, 0).unwrap();
         assert_eq!(remaining, &[]);
         assert!(matches!(
             payload,
@@ -1367,7 +1412,7 @@ mod test {
         ));
 
         let mut emit_buffer = [0u8; 0];
-        let remaining = payload.emit(&mut emit_buffer);
+        let remaining = payload.emit(&mut emit_buffer, 0);
         assert_eq!(remaining, &[]);
     }
 
@@ -1377,7 +1422,7 @@ mod test {
             0x01, // Diagnostic power mode
         ];
         let payload_type = PayloadTypeCode::DiagnosticPowerModeInformationResponse;
-        let (remaining, payload) = PayloadTypeContent::parse(&buffer, payload_type).unwrap();
+        let (remaining, payload) = PayloadTypeContent::parse(&buffer, payload_type, 1).unwrap();
         assert_eq!(remaining, &[]);
         if let PayloadTypeContent::DiagnosticPowerModeInformationResponse {
             diagnostic_power_mode,
@@ -1389,7 +1434,7 @@ mod test {
         }
 
         let mut emit_buffer = [0u8; 1];
-        let remaining = payload.emit(&mut emit_buffer);
+        let remaining = payload.emit(&mut emit_buffer, 1);
         assert_eq!(remaining, &[]);
         assert_eq!(emit_buffer, buffer);
     }
@@ -1403,7 +1448,7 @@ mod test {
             1, 2, 3, 4, 5, // Previous diagnostic message
         ];
         let payload_type = PayloadTypeCode::DiagnosticMessageAck;
-        let (remaining, payload) = PayloadTypeContent::parse(&buffer, payload_type).unwrap();
+        let (remaining, payload) = PayloadTypeContent::parse(&buffer, payload_type, 10).unwrap();
         assert_eq!(remaining, &[]);
         if let PayloadTypeContent::DiagnosticMessagePositiveAcknowledgement {
             source_address,
@@ -1421,7 +1466,7 @@ mod test {
         }
 
         let mut emit_buffer = [0u8; 10];
-        let remaining = payload.emit(&mut emit_buffer);
+        let remaining = payload.emit(&mut emit_buffer, 10);
         assert_eq!(remaining, &[]);
         assert_eq!(emit_buffer, buffer);
     }
@@ -1435,7 +1480,7 @@ mod test {
             1, 2, 3, 4, 5, // Previous diagnostic message
         ];
         let payload_type = PayloadTypeCode::DiagnosticMessageNack;
-        let (remaining, payload) = PayloadTypeContent::parse(&buffer, payload_type).unwrap();
+        let (remaining, payload) = PayloadTypeContent::parse(&buffer, payload_type, 10).unwrap();
         assert_eq!(remaining, &[]);
         if let PayloadTypeContent::DiagnosticMessageNegativeAcknowledgement {
             source_address,
@@ -1453,7 +1498,7 @@ mod test {
         }
 
         let mut emit_buffer = [0u8; 10];
-        let remaining = payload.emit(&mut emit_buffer);
+        let remaining = payload.emit(&mut emit_buffer, 10);
         assert_eq!(remaining, &[]);
         assert_eq!(emit_buffer, buffer);
     }
@@ -1468,9 +1513,9 @@ mod test {
 
         assert_eq!(repr.protocol_version, 0x02);
         assert_eq!(repr.inverse_protocol_version, 0xfd);
-        assert_eq!(repr.payload_type, PayloadTypeCode::GenericDoIPHeaderNegativeResponse);
-        assert_eq!(repr.payload_length, 0);
-        assert_eq!(repr.payload, PayloadTypeContent::GenericDoIPHeaderNegativeResponse);
+        assert_eq!(repr.payload.type_code, PayloadTypeCode::GenericDoIPHeaderNegativeResponse);
+        assert_eq!(repr.payload.length, 0);
+        assert_eq!(repr.payload.content, PayloadTypeContent::GenericDoIPHeaderNegativeResponse);
     }
 
     #[test]
@@ -1478,12 +1523,14 @@ mod test {
         let repr = Repr {
             protocol_version: 0x02,
             inverse_protocol_version: 0xfd,
-            payload_type: PayloadTypeCode::GenericDoIPHeaderNegativeResponse,
-            payload_length: 0,
-            payload: PayloadTypeContent::GenericDoIPHeaderNegativeResponse,
+            payload: Payload {
+                type_code: PayloadTypeCode::GenericDoIPHeaderNegativeResponse,
+                length: 0,
+                content: PayloadTypeContent::GenericDoIPHeaderNegativeResponse,
+            },
         };
 
-        let mut buffer = [0u8; 11];
+        let mut buffer = [0u8; 40];
         let mut packet = Packet::new_checked(&mut buffer).unwrap();
         repr.emit(&mut packet);
 
@@ -1491,6 +1538,6 @@ mod test {
         assert_eq!(packet.inverse_protocol_version(), 0xfd);
         assert_eq!(packet.payload_type(), PayloadTypeCode::GenericDoIPHeaderNegativeResponse);
         assert_eq!(packet.payload_length(), 0);
-        assert_eq!(packet.payload(), &[]);
+        assert_eq!(packet.payload(), &[0, 0, 0, 0, 0, 0]);
     }
 }
