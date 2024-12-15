@@ -134,6 +134,12 @@ impl<'a, T: AsRef<[u8]> + ?Sized> Packet<&'a T> {
 
         &data[payload_range]
     }
+
+    #[inline]
+    pub fn message(&self) -> &'a [u8] {
+        let data = self.buffer.as_ref();
+        &data[..field::header::PAYLOAD_LENGTH.end + self.payload_length()]
+    }
 }
 
 impl<'a, T: AsRef<[u8]> + AsMut<[u8]> + ?Sized> Packet<&'a mut T> {
@@ -153,6 +159,13 @@ impl<'a, T: AsRef<[u8]> + AsMut<[u8]> + ?Sized> Packet<&'a mut T> {
         let data = self.buffer.as_mut();
 
         &mut data[payload_range]
+    }
+
+    #[inline]
+    pub fn message(&mut self) -> &mut [u8] {
+        let payload_length = self.payload_length();
+        let data = self.buffer.as_mut();
+        &mut data[..field::header::PAYLOAD_LENGTH.end + payload_length]
     }
 }
 
