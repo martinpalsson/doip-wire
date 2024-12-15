@@ -1,8 +1,8 @@
+use crate::error::Error;
+use crate::field;
+use crate::payload::PayloadTypeCode;
 use byteorder::{ByteOrder, NetworkEndian};
 use core::fmt;
-use crate::field;
-use crate::error::Error;
-use crate::payload::PayloadTypeCode;
 
 pub type Result<T> = core::result::Result<T, Error>;
 

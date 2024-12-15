@@ -1,12 +1,15 @@
+pub mod error;
+pub mod field;
 pub mod packet;
 pub mod payload;
-pub mod field;
-pub mod error;
-
 
 #[cfg(test)]
 mod test {
-    use crate::{packet::Packet, payload::{PayloadTypeCode, PayloadTypeContent, Payload, Repr}, field};
+    use crate::{
+        field,
+        packet::Packet,
+        payload::{Payload, PayloadTypeCode, PayloadTypeContent, Repr},
+    };
 
     #[test]
     fn test_deconstruct_without_payload() {

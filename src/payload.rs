@@ -1,6 +1,6 @@
+use crate::{error::*, field, packet::*};
 use byteorder::{ByteOrder, NetworkEndian};
 use core::fmt;
-use crate::{field, error::*, packet::*};
 
 /// Enum representing the different payload types in the DoIP protocol.
 #[derive(PartialEq, Eq, Clone, Copy, Debug)]
