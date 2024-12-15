@@ -18,99 +18,116 @@ mod field {
     #![allow(non_snake_case)]
 
     pub type Field = ::core::ops::Range<usize>;
+    pub mod header {
+        use crate::field::Field;
+        pub const PRC_VER: Field = 0..1;
+        pub const IPC_VER: Field = 1..2;
+        pub const PYL_TYP: Field = 2..4;
+        pub const PYL_LEN: Field = 4..8;
+        /// The length of the DoIP header excluding payload.
+        pub const LENGTH: usize = PYL_LEN.end;
+    }
+    /// Vehicle Announce Message / Vehicle Identification Response
+    pub mod vam {
+        use crate::field::Field;
+        pub const VIN: Field = 0..17;
+        pub const LA: Field = 17..19;
+        pub const EID: Field = 19..25;
+        pub const GID: Field = 25..31;
+        pub const FTA: Field = 31..32;
+        pub const GSS: Field = 32..33;
+        
+        pub const LENGTH: usize = 33;
+        pub const VIN_LENGTH: usize = 17;
+        pub const EID_LENGTH: usize = 6;
+        pub const GID_LENGTH: usize = 6;
+    }
+    /// Vehicle Identification Request with EID
+    pub mod vir_eid {
+        use crate::field::Field;
+        pub const EID: Field = 0..6;
 
-    pub const PRC_VER: Field = 0..1;
-    pub const IPC_VER: Field = 1..2;
-    pub const PYL_TYP: Field = 2..4;
-    pub const PYL_LEN: Field = 4..8;
+        pub const LENGTH: usize = 6;
+        pub const EID_LENGTH: usize = 6;
+    }
 
-    pub mod payload_type {
+    /// Vehicle Identification Request with VIN
+    pub mod vir_vin {
+        use crate::field::Field;
+        pub const VIN: Field = 0..17;
 
-        pub mod vehicle_identification_response {
-            use crate::field::Field;
-            pub const VIN: Field = 0..17;
-            pub const LA: Field = 17..19;
-            pub const EID: Field = 19..25;
-            pub const GID: Field = 25..31;
-            pub const FTA: Field = 31..32;
-            pub const GSS: Field = 32..33;
-            pub const LENGTH: usize = 33;
+        pub const LENGTH: usize = 17;
+        pub const VIN_LENGTH: usize = 17;
+    }
+
+    /// Routing Activation Request
+    pub mod ra_req {
+        use crate::field::Field;
+        pub const SA: Field = 0..2;
+        pub const AT: Field = 2..3;
+        pub const ISO_RES: Field = 3..7;
+        pub const OEM_RES: Field = 7..11;
+        pub const LENGTH: usize = 11;
+    }
+
+    /// Routing Activation Response
+    pub mod ra_res {
+        use crate::field::Field;
+        pub const LAT: Field = 0..2;
+        pub const LADE: Field = 2..4;
+        pub const RCODE: Field = 4..5;
+        pub const ISO_RES: Field = 5..9;
+        pub const OEM_RES: Field = 9..13;
+        pub const LENGTH: usize = 13;
+    }
+
+    /// Alive Check Response
+    pub mod ac_res {
+        use crate::field::Field;
+        pub const SA: Field = 0..2;
+        pub const LENGTH: usize = 2;
+    }
+
+    // DoIP Entity Status Response
+    pub mod des_res {
+        use crate::field::Field;
+        pub const NT: Field = 0..1;
+        pub const MOS: Field = 1..2;
+        pub const COS: Field = 2..3;
+        pub const MDS: Field = 3..7;
+        pub const LENGTH: usize = 7;
+    }
+
+    /// Diagnostic Power Mode Information Response
+    pub mod dpmi_res {
+        use crate::field::Field;
+        pub const DPM: Field = 0..1;
+        pub const LENGTH: usize = 1;
+    }
+
+    /// Diagnostic Message
+    pub mod dm {
+        use crate::field::Field;
+        pub const SA: Field = 0..2;
+        pub const TA: Field = 2..4;
+        pub const fn DATA(length: usize) -> Field {
+            TA.end..(length)
         }
-        pub mod vehicle_identification_request_eid {
-            use crate::field::Field;
-            pub const EID: Field = 0..6;
-            pub const LENGTH: usize = 6;
-        }
+    }
 
-        pub mod vehicle_identification_request_vin {
-            use crate::field::Field;
-            pub const VIN: Field = 0..17;
-            pub const LENGTH: usize = 17;
-        }
-
-        pub mod routing_activation_request {
-            use crate::field::Field;
-            pub const SA: Field = 0..2;
-            pub const AT: Field = 2..3;
-            pub const ISO_RES: Field = 3..7;
-            pub const OEM_RES: Field = 7..11;
-            pub const LENGTH: usize = 11;
-        }
-
-        pub mod routing_activation_response {
-            use crate::field::Field;
-            pub const LAT: Field = 0..2;
-            pub const LADE: Field = 2..4;
-            pub const RCODE: Field = 4..5;
-            pub const ISO_RES: Field = 5..9;
-            pub const OEM_RES: Field = 9..13;
-            pub const LENGTH: usize = 13;
-        }
-
-        pub mod alive_check_response {
-            use crate::field::Field;
-            pub const SA: Field = 0..2;
-            pub const LENGTH: usize = 2;
-        }
-
-        pub mod doip_entity_status_response {
-            use crate::field::Field;
-            pub const NT: Field = 0..1;
-            pub const MOS: Field = 1..2;
-            pub const COS: Field = 2..3;
-            pub const MDS: Field = 3..7;
-            pub const LENGTH: usize = 7;
-        }
-
-        pub mod diagnostic_power_mode_information_response {
-            use crate::field::Field;
-            pub const DPM: Field = 0..1;
-            pub const LENGTH: usize = 1;
-        }
-
-        pub mod diagnostic_message {
-            use crate::field::Field;
-            pub const SA: Field = 0..2;
-            pub const TA: Field = 2..4;
-            pub const fn DATA(length: usize) -> Field {
-                TA.end..(length)
-            }
-        }
-
-        pub mod diag_message_xack {
-            use crate::field::Field;
-            pub const SA: Field = 0..2;
-            pub const TA: Field = 2..4;
-            pub const ACKC: Field = 4..5;
-            pub const fn PYL_DMACK_DATA(length: usize) -> Field {
-                ACKC.end..(length)
-            }
+    /// Diagnostic Message Positive/Negative Acknowledgement
+    pub mod dm_xack {
+        use crate::field::Field;
+        pub const SA: Field = 0..2;
+        pub const TA: Field = 2..4;
+        pub const ACKC: Field = 4..5;
+        pub const fn DATA(length: usize) -> Field {
+            ACKC.end..(length)
         }
     }
 }
 
-/// The length of the DoIP header excluding payload.
-pub const HEADER_LEN: usize = field::PYL_LEN.end;
+
 
 /// Enum representing the different payload types in the DoIP protocol.
 #[derive(PartialEq, Eq, Clone, Copy, Debug)]
@@ -236,7 +253,7 @@ impl<T: AsRef<[u8]>> Packet<T> {
 
     pub fn check_len(&self) -> Result<()> {
         let len = self.buffer.as_ref().len();
-        if len < field::PYL_LEN.end {
+        if len < field::header::PYL_LEN.end {
             Err(Error)
         } else {
             Ok(())
@@ -249,17 +266,17 @@ impl<T: AsRef<[u8]>> Packet<T> {
 
     pub fn protocol_version(&self) -> u8 {
         let data = self.buffer.as_ref();
-        data[field::PRC_VER.start]
+        data[field::header::PRC_VER.start]
     }
 
     pub fn inverse_protocol_version(&self) -> u8 {
         let data = self.buffer.as_ref();
-        data[field::IPC_VER.start]
+        data[field::header::IPC_VER.start]
     }
 
     pub fn payload_type(&self) -> PayloadType {
         let data = self.buffer.as_ref();
-         match PayloadType::from_u16(NetworkEndian::read_u16(&data[field::PYL_TYP])) {
+         match PayloadType::from_u16(NetworkEndian::read_u16(&data[field::header::PYL_TYP])) {
             Some(payload_type) => payload_type,
             None => PayloadType::GenericDoIPHeaderNegativeResponse,
          }
@@ -267,29 +284,29 @@ impl<T: AsRef<[u8]>> Packet<T> {
 
     pub fn payload_length(&self) -> usize {
         let data = self.buffer.as_ref();
-        NetworkEndian::read_u32(&data[field::PYL_LEN]) as usize
+        NetworkEndian::read_u32(&data[field::header::PYL_LEN]) as usize
     }
 }
 
 impl<T: AsRef<[u8]> + AsMut<[u8]>> Packet<T> {
     pub fn set_protocol_version(&mut self, value: u8) {
         let data = self.buffer.as_mut();
-        data[field::PRC_VER.start] = value;
+        data[field::header::PRC_VER.start] = value;
     }
 
     pub fn set_inverse_protocol_version(&mut self, value: u8) {
         let data = self.buffer.as_mut();
-        data[field::IPC_VER.start] = value;
+        data[field::header::IPC_VER.start] = value;
     }
 
     pub fn set_payload_type(&mut self, value: PayloadType) {
         let data = self.buffer.as_mut();
-        NetworkEndian::write_u16(&mut data[field::PYL_TYP], value as u16);
+        NetworkEndian::write_u16(&mut data[field::header::PYL_TYP], value as u16);
     }
 
     pub fn set_payload_length(&mut self, value: usize) {
         let data = self.buffer.as_mut();
-        NetworkEndian::write_u32(&mut data[field::PYL_LEN], value as u32);
+        NetworkEndian::write_u32(&mut data[field::header::PYL_LEN], value as u32);
     }
 }
 
@@ -297,7 +314,7 @@ impl<'a, T: AsRef<[u8]> + ?Sized> Packet<&'a T> {
     #[inline]
     pub fn payload(&self) -> &'a [u8] {
         let data = self.buffer.as_ref();
-        &data[HEADER_LEN..]
+        &data[field::header::LENGTH..]
     }
 }
 
@@ -305,7 +322,7 @@ impl<'a, T: AsRef<[u8]> + AsMut<[u8]> + ?Sized> Packet<&'a mut T> {
     #[inline]
     pub fn payload(&mut self) -> &mut [u8] {
         let data = self.buffer.as_mut();
-        &mut data[HEADER_LEN..]
+        &mut data[field::header::LENGTH..]
     }
 }
 
@@ -315,16 +332,16 @@ pub enum Payload<'a> {
     GenericDoIPHeaderNegativeResponse,
     VehicleIdentificationRequest,
     VehicleIdentificationRequestWithEID {
-        eid: &'a [u8; 6],
+        eid: &'a [u8; field::vir_eid::EID_LENGTH],
     },
     VehicleIdentificationRequestWithVIN {
-        vin: &'a [u8; 17],
+        vin: &'a [u8; field::vir_vin::VIN_LENGTH],
     },
     VehicleIdentificationResponseMessage {
-        vin: &'a [u8; 17],
+        vin: &'a [u8; field::vam::VIN_LENGTH],
         logical_address: u16,
-        eid: &'a [u8; 6],
-        gid: &'a [u8; 6],
+        eid: &'a [u8; field::vam::EID_LENGTH],
+        gid: &'a [u8; field::vam::GID_LENGTH],
         further_action: u8,
         gid_sync_status: u8,
     },
@@ -399,50 +416,50 @@ impl<'a> Payload<'a> {
                 payload = Payload::VehicleIdentificationRequest;
             }
             PayloadType::VehicleIdentificationRequestEID => {
-                if buffer.len() < field::payload_type::vehicle_identification_request_eid::LENGTH {
+                if buffer.len() < field::vir_eid::LENGTH {
                     return Err(Error);
                 }
                 let eid = buffer
-                    .get(field::payload_type::vehicle_identification_request_eid::EID)
+                    .get(field::vir_eid::EID)
                     .ok_or(Error)?;
-                length = field::payload_type::vehicle_identification_request_eid::LENGTH;
+                length = field::vir_eid::LENGTH;
                 payload = Payload::VehicleIdentificationRequestWithEID {
                     eid: eid.try_into().unwrap(),
                 };
             }
             PayloadType::VehicleIdentificationRequestVIN => {
-                if buffer.len() < field::payload_type::vehicle_identification_request_vin::LENGTH {
+                if buffer.len() < field::vir_vin::LENGTH {
                     return Err(Error);
                 }
                 let vin = buffer
-                    .get(field::payload_type::vehicle_identification_request_vin::VIN)
+                    .get(field::vir_vin::VIN)
                     .ok_or(Error)?;
-                length = field::payload_type::vehicle_identification_request_vin::LENGTH;
+                length = field::vir_vin::LENGTH;
                 payload = Payload::VehicleIdentificationRequestWithVIN {
                     vin: vin.try_into().unwrap(),
                 };
             }
             PayloadType::VehicleAnnouncementMessage => {
-                if buffer.len() < field::payload_type::vehicle_identification_response::LENGTH {
+                if buffer.len() < field::vam::LENGTH {
                     return Err(Error);
                 }
                 let vin = buffer
-                    .get(field::payload_type::vehicle_identification_response::VIN)
+                    .get(field::vam::VIN)
                     .ok_or(Error)?;
                 let logical_address = NetworkEndian::read_u16(
-                    &buffer[field::payload_type::vehicle_identification_response::LA],
+                    &buffer[field::vam::LA],
                 );
                 let eid = buffer
-                    .get(field::payload_type::vehicle_identification_response::EID)
+                    .get(field::vam::EID)
                     .ok_or(Error)?;
                 let gid = buffer
-                    .get(field::payload_type::vehicle_identification_response::GID)
+                    .get(field::vam::GID)
                     .ok_or(Error)?;
                 let further_action =
-                    buffer[field::payload_type::vehicle_identification_response::FTA.start];
+                    buffer[field::vam::FTA.start];
                 let gid_sync_status =
-                    buffer[field::payload_type::vehicle_identification_response::GSS.start];
-                length = field::payload_type::vehicle_identification_response::LENGTH;
+                    buffer[field::vam::GSS.start];
+                length = field::vam::LENGTH;
                 payload = Payload::VehicleIdentificationResponseMessage {
                     vin: vin.try_into().unwrap(),
                     logical_address,
@@ -453,15 +470,15 @@ impl<'a> Payload<'a> {
                 };
             }
             PayloadType::DiagnosticMessage => {
-                if buffer.len() < field::payload_type::diagnostic_message::DATA(0).end {
+                if buffer.len() < field::dm::DATA(0).end {
                     return Err(Error);
                 }
                 let source_address =
-                    NetworkEndian::read_u16(&buffer[field::payload_type::diagnostic_message::SA]);
+                    NetworkEndian::read_u16(&buffer[field::dm::SA]);
                 let target_address =
-                    NetworkEndian::read_u16(&buffer[field::payload_type::diagnostic_message::TA]);
+                    NetworkEndian::read_u16(&buffer[field::dm::TA]);
                 length = buffer.len();
-                let user_data = &buffer[field::payload_type::diagnostic_message::DATA(length)];
+                let user_data = &buffer[field::dm::DATA(length)];
                 payload = Payload::DiagnosticMessage {
                     source_address,
                     target_address,
@@ -469,21 +486,21 @@ impl<'a> Payload<'a> {
                 };
             }
             PayloadType::RoutingActivationRequest => {
-                if buffer.len() < field::payload_type::routing_activation_request::LENGTH {
+                if buffer.len() < field::ra_req::LENGTH {
                     return Err(Error);
                 }
                 let source_address = NetworkEndian::read_u16(
-                    &buffer[field::payload_type::routing_activation_request::SA],
+                    &buffer[field::ra_req::SA],
                 );
                 let activation_type =
-                    buffer[field::payload_type::routing_activation_request::AT.start];
+                    buffer[field::ra_req::AT.start];
                 let iso_reserved = NetworkEndian::read_u32(
-                    &buffer[field::payload_type::routing_activation_request::ISO_RES],
+                    &buffer[field::ra_req::ISO_RES],
                 );
                 let oem_specific = NetworkEndian::read_u32(
-                    &buffer[field::payload_type::routing_activation_request::OEM_RES],
+                    &buffer[field::ra_req::OEM_RES],
                 );
-                length = field::payload_type::routing_activation_request::LENGTH;
+                length = field::ra_req::LENGTH;
                 payload = Payload::RoutingActivationRequest {
                     source_address,
                     activation_type,
@@ -492,24 +509,24 @@ impl<'a> Payload<'a> {
                 };
             }
             PayloadType::RoutingActivationResponse => {
-                if buffer.len() < field::payload_type::routing_activation_response::LENGTH {
+                if buffer.len() < field::ra_res::LENGTH {
                     return Err(Error);
                 }
                 let logical_address_tester = NetworkEndian::read_u16(
-                    &buffer[field::payload_type::routing_activation_response::LAT],
+                    &buffer[field::ra_res::LAT],
                 );
                 let logical_address_doip_entity = NetworkEndian::read_u16(
-                    &buffer[field::payload_type::routing_activation_response::LADE],
+                    &buffer[field::ra_res::LADE],
                 );
                 let routing_activation_response_code =
-                    buffer[field::payload_type::routing_activation_response::RCODE.start];
+                    buffer[field::ra_res::RCODE.start];
                 let iso_reserved = NetworkEndian::read_u32(
-                    &buffer[field::payload_type::routing_activation_response::ISO_RES],
+                    &buffer[field::ra_res::ISO_RES],
                 );
                 let oem_specific = NetworkEndian::read_u32(
-                    &buffer[field::payload_type::routing_activation_response::OEM_RES],
+                    &buffer[field::ra_res::OEM_RES],
                 );
-                length = field::payload_type::routing_activation_response::LENGTH;
+                length = field::ra_res::LENGTH;
                 payload = Payload::RoutingActivationResponse {
                     logical_address_tester,
                     logical_address_doip_entity,
@@ -523,12 +540,12 @@ impl<'a> Payload<'a> {
                 payload = Payload::AliveCheckRequest;
             }
             PayloadType::AliveCheckResponse => {
-                if buffer.len() < field::payload_type::alive_check_response::LENGTH {
+                if buffer.len() < field::ac_res::LENGTH {
                     return Err(Error);
                 }
                 let source_address =
-                    NetworkEndian::read_u16(&buffer[field::payload_type::alive_check_response::SA]);
-                length = field::payload_type::alive_check_response::LENGTH;
+                    NetworkEndian::read_u16(&buffer[field::ac_res::SA]);
+                length = field::ac_res::LENGTH;
                 payload = Payload::AliveCheckResponse { source_address };
             }
             PayloadType::DoIPEntityStatusRequest => {
@@ -536,18 +553,18 @@ impl<'a> Payload<'a> {
                 payload = Payload::DoIPEntityStatusRequest;
             }
             PayloadType::DoIPEntityStatusResponse => {
-                if buffer.len() < field::payload_type::doip_entity_status_response::LENGTH {
+                if buffer.len() < field::des_res::LENGTH {
                     return Err(Error);
                 }
-                let node_type = buffer[field::payload_type::doip_entity_status_response::NT.start];
+                let node_type = buffer[field::des_res::NT.start];
                 let max_open_sockets =
-                    buffer[field::payload_type::doip_entity_status_response::MOS.start];
+                    buffer[field::des_res::MOS.start];
                 let currently_open_sockets =
-                    buffer[field::payload_type::doip_entity_status_response::COS.start];
+                    buffer[field::des_res::COS.start];
                 let max_data_size = NetworkEndian::read_u32(
-                    &buffer[field::payload_type::doip_entity_status_response::MDS],
+                    &buffer[field::des_res::MDS],
                 );
-                length = field::payload_type::doip_entity_status_response::LENGTH;
+                length = field::des_res::LENGTH;
                 payload = Payload::DoIPEntityStatusResponse {
                     node_type,
                     max_open_sockets,
@@ -561,29 +578,29 @@ impl<'a> Payload<'a> {
             }
             PayloadType::DiagnosticPowerModeInformationResponse => {
                 if buffer.len()
-                    < field::payload_type::diagnostic_power_mode_information_response::LENGTH
+                    < field::dpmi_res::LENGTH
                 {
                     return Err(Error);
                 }
                 let diagnostic_power_mode = buffer
-                    [field::payload_type::diagnostic_power_mode_information_response::DPM.start];
-                length = field::payload_type::diagnostic_power_mode_information_response::LENGTH;
+                    [field::dpmi_res::DPM.start];
+                length = field::dpmi_res::LENGTH;
                 payload = Payload::DiagnosticPowerModeInformationResponse {
                     diagnostic_power_mode,
                 };
             }
             PayloadType::DiagnosticMessageAck => {
-                if buffer.len() < field::payload_type::diag_message_xack::PYL_DMACK_DATA(0).end {
+                if buffer.len() < field::dm_xack::DATA(0).end {
                     return Err(Error);
                 }
                 let source_address =
-                    NetworkEndian::read_u16(&buffer[field::payload_type::diag_message_xack::SA]);
+                    NetworkEndian::read_u16(&buffer[field::dm_xack::SA]);
                 let target_address =
-                    NetworkEndian::read_u16(&buffer[field::payload_type::diag_message_xack::TA]);
-                let ack_code = buffer[field::payload_type::diag_message_xack::ACKC.start];
+                    NetworkEndian::read_u16(&buffer[field::dm_xack::TA]);
+                let ack_code = buffer[field::dm_xack::ACKC.start];
                 length = buffer.len();
                 let previous_diagnostic_message =
-                    &buffer[field::payload_type::diag_message_xack::PYL_DMACK_DATA(length)];
+                    &buffer[field::dm_xack::DATA(length)];
                 payload = Payload::DiagnosticMessagePositiveAcknowledgement {
                     source_address,
                     target_address,
@@ -592,17 +609,17 @@ impl<'a> Payload<'a> {
                 };
             }
             PayloadType::DiagnosticMessageNack => {
-                if buffer.len() < field::payload_type::diag_message_xack::PYL_DMACK_DATA(0).end {
+                if buffer.len() < field::dm_xack::DATA(0).end {
                     return Err(Error);
                 }
                 let source_address =
-                    NetworkEndian::read_u16(&buffer[field::payload_type::diag_message_xack::SA]);
+                    NetworkEndian::read_u16(&buffer[field::dm_xack::SA]);
                 let target_address =
-                    NetworkEndian::read_u16(&buffer[field::payload_type::diag_message_xack::TA]);
-                let nack_code = buffer[field::payload_type::diag_message_xack::ACKC.start];
+                    NetworkEndian::read_u16(&buffer[field::dm_xack::TA]);
+                let nack_code = buffer[field::dm_xack::ACKC.start];
                 length = buffer.len();
                 let previous_diagnostic_message =
-                    &buffer[field::payload_type::diag_message_xack::PYL_DMACK_DATA(length)];
+                    &buffer[field::dm_xack::DATA(length)];
                 payload = Payload::DiagnosticMessageNegativeAcknowledgement {
                     source_address,
                     target_address,
@@ -633,12 +650,12 @@ impl<'a> Payload<'a> {
                 length = 0;
             }
             Payload::VehicleIdentificationRequestWithEID { eid } => {
-                buffer[0..6].copy_from_slice(eid);
-                length = 6;
+                buffer[field::vir_eid::EID].copy_from_slice(eid);
+                length = field::vir_eid::LENGTH;
             }
             Payload::VehicleIdentificationRequestWithVIN { vin } => {
-                buffer[0..17].copy_from_slice(vin);
-                length = 17;
+                buffer[field::vir_vin::VIN].copy_from_slice(vin);
+                length = field::vir_vin::LENGTH;
             }
             Payload::VehicleIdentificationResponseMessage {
                 vin,
@@ -648,23 +665,24 @@ impl<'a> Payload<'a> {
                 further_action,
                 gid_sync_status,
             } => {
-                buffer[0..17].copy_from_slice(vin);
-                NetworkEndian::write_u16(&mut buffer[17..19], logical_address);
-                buffer[19..25].copy_from_slice(eid);
-                buffer[25..31].copy_from_slice(gid);
-                buffer[31] = further_action;
-                buffer[32] = gid_sync_status;
-                length = 33;
+                buffer[field::vam::VIN].copy_from_slice(vin);
+                NetworkEndian::write_u16(&mut buffer[field::vam::LA], logical_address);
+                buffer[field::vam::EID].copy_from_slice(eid);
+                buffer[field::vam::GID].copy_from_slice(gid);
+                buffer[field::vam::FTA.start] = further_action;
+                buffer[field::vam::GSS.start] = gid_sync_status;
+                length = field::vam::LENGTH;
             }
             Payload::DiagnosticMessage {
                 source_address,
                 target_address,
                 user_data,
             } => {
-                NetworkEndian::write_u16(&mut buffer[0..2], source_address);
-                NetworkEndian::write_u16(&mut buffer[2..4], target_address);
-                buffer[4..4 + user_data.len()].copy_from_slice(user_data);
-                length = 4 + user_data.len();
+                NetworkEndian::write_u16(&mut buffer[field::dm::SA], source_address);
+                NetworkEndian::write_u16(&mut buffer[field::dm::TA], target_address);
+                let data_range = field::dm::DATA(user_data.len());
+                length = data_range.end;
+                buffer[data_range].copy_from_slice(user_data);
             }
             Payload::RoutingActivationRequest {
                 source_address,
@@ -672,11 +690,11 @@ impl<'a> Payload<'a> {
                 iso_reserved,
                 oem_specific,
             } => {
-                NetworkEndian::write_u16(&mut buffer[0..2], source_address);
-                buffer[2] = activation_type;
-                NetworkEndian::write_u32(&mut buffer[3..7], iso_reserved);
-                NetworkEndian::write_u32(&mut buffer[7..11], oem_specific);
-                length = 11;
+                NetworkEndian::write_u16(&mut buffer[field::ra_req::SA], source_address);
+                buffer[field::ra_req::AT.start] = activation_type;
+                NetworkEndian::write_u32(&mut buffer[field::ra_req::ISO_RES], iso_reserved);
+                NetworkEndian::write_u32(&mut buffer[field::ra_req::OEM_RES], oem_specific);
+                length = field::ra_req::LENGTH;
             }
             Payload::RoutingActivationResponse {
                 logical_address_tester,
@@ -685,19 +703,19 @@ impl<'a> Payload<'a> {
                 iso_reserved,
                 oem_specific,
             } => {
-                NetworkEndian::write_u16(&mut buffer[0..2], logical_address_tester);
-                NetworkEndian::write_u16(&mut buffer[2..4], logical_address_doip_entity);
-                buffer[4] = routing_activation_response_code;
-                NetworkEndian::write_u32(&mut buffer[5..9], iso_reserved);
-                NetworkEndian::write_u32(&mut buffer[9..13], oem_specific);
+                NetworkEndian::write_u16(&mut buffer[field::ra_res::LAT], logical_address_tester);
+                NetworkEndian::write_u16(&mut buffer[field::ra_res::LADE], logical_address_doip_entity);
+                buffer[field::ra_res::RCODE.start] = routing_activation_response_code;
+                NetworkEndian::write_u32(&mut buffer[field::ra_res::ISO_RES], iso_reserved);
+                NetworkEndian::write_u32(&mut buffer[field::ra_res::OEM_RES], oem_specific);
                 length = 13;
             }
             Payload::AliveCheckRequest => {
                 length = 0;
             }
             Payload::AliveCheckResponse { source_address } => {
-                NetworkEndian::write_u16(&mut buffer[0..2], source_address);
-                length = 2;
+                NetworkEndian::write_u16(&mut buffer[field::ac_res::SA], source_address);
+                length = field::ac_res::LENGTH;
             }
             Payload::DoIPEntityStatusRequest => {
                 length = 0;
@@ -708,11 +726,11 @@ impl<'a> Payload<'a> {
                 currently_open_sockets,
                 max_data_size,
             } => {
-                buffer[0] = node_type;
-                buffer[1] = max_open_sockets;
-                buffer[2] = currently_open_sockets;
-                NetworkEndian::write_u32(&mut buffer[3..7], max_data_size);
-                length = 7;
+                buffer[field::des_res::NT.start] = node_type;
+                buffer[field::des_res::MOS.start] = max_open_sockets;
+                buffer[field::des_res::COS.start] = currently_open_sockets;
+                NetworkEndian::write_u32(&mut buffer[field::des_res::MDS], max_data_size);
+                length = field::des_res::LENGTH;
             }
             Payload::DiagnosticPowerModeInformationRequest => {
                 length = 0;
@@ -720,8 +738,8 @@ impl<'a> Payload<'a> {
             Payload::DiagnosticPowerModeInformationResponse {
                 diagnostic_power_mode,
             } => {
-                buffer[0] = diagnostic_power_mode;
-                length = 1;
+                buffer[field::dpmi_res::DPM.start] = diagnostic_power_mode;
+                length = field::dpmi_res::LENGTH;
             }
             Payload::DiagnosticMessagePositiveAcknowledgement {
                 source_address,
@@ -729,12 +747,12 @@ impl<'a> Payload<'a> {
                 ack_code,
                 previous_diagnostic_message,
             } => {
-                NetworkEndian::write_u16(&mut buffer[0..2], source_address);
-                NetworkEndian::write_u16(&mut buffer[2..4], target_address);
-                buffer[4] = ack_code;
-                buffer[5..5 + previous_diagnostic_message.len()]
-                    .copy_from_slice(previous_diagnostic_message);
-                length = 5 + previous_diagnostic_message.len();
+                NetworkEndian::write_u16(&mut buffer[field::dm_xack::SA], source_address);
+                NetworkEndian::write_u16(&mut buffer[field::dm_xack::TA], target_address);
+                buffer[field::dm_xack::ACKC.start] = ack_code;
+                let data_range = field::dm_xack::DATA(previous_diagnostic_message.len());
+                length = data_range.end;
+                buffer[data_range].copy_from_slice(previous_diagnostic_message);
             }
             Payload::DiagnosticMessageNegativeAcknowledgement {
                 source_address,
@@ -742,12 +760,12 @@ impl<'a> Payload<'a> {
                 nack_code,
                 previous_diagnostic_message,
             } => {
-                NetworkEndian::write_u16(&mut buffer[0..2], source_address);
-                NetworkEndian::write_u16(&mut buffer[2..4], target_address);
-                buffer[4] = nack_code;
-                buffer[5..5 + previous_diagnostic_message.len()]
-                    .copy_from_slice(previous_diagnostic_message);
-                length = 5 + previous_diagnostic_message.len();
+                NetworkEndian::write_u16(&mut buffer[field::dm_xack::SA], source_address);
+                NetworkEndian::write_u16(&mut buffer[field::dm_xack::TA], target_address);
+                buffer[field::dm_xack::ACKC.start] = nack_code;
+                let data_range = field::dm_xack::DATA(previous_diagnostic_message.len());
+                length = data_range.end;
+                buffer[data_range].copy_from_slice(previous_diagnostic_message);
             }
         }
         &mut buffer[length..]
@@ -787,7 +805,7 @@ impl<'a> Repr<'a> {
 
     /// Returns the length of the header.
     pub fn header_len(&self) -> usize {
-        HEADER_LEN
+        field::header::LENGTH
     }
 
     /// Returns the length of the buffer.
@@ -1396,5 +1414,41 @@ mod test {
         let remaining = payload.emit(&mut emit_buffer);
         assert_eq!(remaining, &[]);
         assert_eq!(emit_buffer, buffer);
+    }
+
+    #[test]
+    fn test_repr_parse() {
+        let buffer = [
+            0x02, 0xfd, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        ];
+        let packet = Packet::new_checked(&buffer).unwrap();
+        let repr = Repr::parse(&packet).unwrap();
+
+        assert_eq!(repr.protocol_version, 0x02);
+        assert_eq!(repr.inverse_protocol_version, 0xfd);
+        assert_eq!(repr.payload_type, PayloadType::GenericDoIPHeaderNegativeResponse);
+        assert_eq!(repr.payload_length, 0);
+        assert_eq!(repr.payload, Payload::GenericDoIPHeaderNegativeResponse);
+    }
+
+    #[test]
+    fn test_repr_emit() {
+        let repr = Repr {
+            protocol_version: 0x02,
+            inverse_protocol_version: 0xfd,
+            payload_type: PayloadType::GenericDoIPHeaderNegativeResponse,
+            payload_length: 0,
+            payload: Payload::GenericDoIPHeaderNegativeResponse,
+        };
+
+        let mut buffer = [0u8; 11];
+        let mut packet = Packet::new_checked(&mut buffer).unwrap();
+        repr.emit(&mut packet);
+
+        assert_eq!(packet.protocol_version(), 0x02);
+        assert_eq!(packet.inverse_protocol_version(), 0xfd);
+        assert_eq!(packet.payload_type(), PayloadType::GenericDoIPHeaderNegativeResponse);
+        assert_eq!(packet.payload_length(), 0);
+        assert_eq!(packet.payload(), &[]);
     }
 }
