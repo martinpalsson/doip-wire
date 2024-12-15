@@ -74,6 +74,7 @@ pub mod error;
 pub mod field;
 pub mod packet;
 pub mod payload;
+pub mod types;
 
 #[cfg(test)]
 mod test {
@@ -81,6 +82,7 @@ mod test {
         field,
         packet::Packet,
         payload::{Payload, PayloadTypeCode, PayloadTypeContent, Repr},
+        types::DoIPPowerMode,
     };
 
     #[test]
@@ -448,7 +450,7 @@ mod test {
                 type_code: PayloadTypeCode::DiagnosticPowerModeInformationResponse,
                 length: 1,
                 content: PayloadTypeContent::DiagnosticPowerModeInformationResponse {
-                    diagnostic_power_mode: 1,
+                    diagnostic_power_mode: DoIPPowerMode::Ready,
                 },
             },
         };

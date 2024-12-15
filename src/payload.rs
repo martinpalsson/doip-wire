@@ -1,4 +1,4 @@
-use crate::{error::*, field, packet::*};
+use crate::{error::*, field, packet::*, types::*};
 use byteorder::{ByteOrder, NetworkEndian};
 use core::fmt;
 
@@ -158,7 +158,7 @@ pub enum PayloadTypeContent<'a> {
     },
     DiagnosticPowerModeInformationRequest,
     DiagnosticPowerModeInformationResponse {
-        diagnostic_power_mode: u8,
+        diagnostic_power_mode: DoIPPowerMode,
     },
     DiagnosticMessage {
         source_address: u16,
@@ -326,11 +326,16 @@ impl<'a> PayloadTypeContent<'a> {
                 if buffer.len() < field::payload::dpmi_res::LENGTH {
                     return Err(Error);
                 }
-                let diagnostic_power_mode = buffer[field::payload::dpmi_res::DPM.start];
-                length = field::payload::dpmi_res::LENGTH;
-                payload = PayloadTypeContent::DiagnosticPowerModeInformationResponse {
-                    diagnostic_power_mode,
-                };
+                if let Some(diagnostic_power_mode) =
+                    DoIPPowerMode::from_u8(buffer[field::payload::dpmi_res::DPM.start])
+                {
+                    length = field::payload::dpmi_res::LENGTH;
+                    payload = PayloadTypeContent::DiagnosticPowerModeInformationResponse {
+                        diagnostic_power_mode,
+                    };
+                } else {
+                    return Err(Error);
+                }
             }
             PayloadTypeCode::DiagnosticMessage => {
                 if buffer.len() < field::payload::dm::DATA(0).end {
@@ -501,7 +506,7 @@ impl<'a> PayloadTypeContent<'a> {
             PayloadTypeContent::DiagnosticPowerModeInformationResponse {
                 diagnostic_power_mode,
             } => {
-                buffer[field::payload::dpmi_res::DPM.start] = diagnostic_power_mode;
+                buffer[field::payload::dpmi_res::DPM.start] = diagnostic_power_mode.to_u8();
                 length = field::payload::dpmi_res::LENGTH;
             }
             PayloadTypeContent::DiagnosticMessage {
