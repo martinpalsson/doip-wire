@@ -1173,9 +1173,9 @@ mod test {
             let mut packet = Packet::new_unchecked(&mut buffer);
             repr.emit(&mut packet);
         }
-    
+
         assert_eq!(&buffer, expected_bytes);
-    
+
         let packet = Packet::new_checked(&buffer).unwrap();
         let parsed_repr = Repr::parse(&packet).unwrap();
         assert_eq!(repr, parsed_repr);
@@ -1193,9 +1193,7 @@ mod test {
             },
         };
         round_trip_test(repr);
-        round_trip_test_with_bytes(repr, &[
-            0x02, 0xfd, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
-        ]);
+        round_trip_test_with_bytes(repr, &[0x02, 0xfd, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]);
     }
 
     #[test]
@@ -1210,9 +1208,7 @@ mod test {
             },
         };
         round_trip_test(repr);
-        round_trip_test_with_bytes(repr, &[
-            0x02, 0xfd, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00
-        ]);
+        round_trip_test_with_bytes(repr, &[0x02, 0xfd, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00]);
     }
 
     #[test]
@@ -1223,37 +1219,52 @@ mod test {
             payload: Payload {
                 type_code: PayloadTypeCode::VehicleIdentificationRequestEID,
                 length: field::payload::vir_eid::LENGTH as u32,
-                content: PayloadTypeContent::VehicleIdentificationRequestWithEID { eid: &[0, 1, 2, 3, 4, 5] },
+                content: PayloadTypeContent::VehicleIdentificationRequestWithEID {
+                    eid: &[0, 1, 2, 3, 4, 5],
+                },
             },
         };
         round_trip_test(repr);
-        round_trip_test_with_bytes(repr, &[
-            0x02, 0xfd, 0x00, 0x02, 0x00, 0x00, 0x00, 0x06, 0x00, 0x01, 0x02, 0x03, 0x04, 0x05
-        ]);
+        round_trip_test_with_bytes(
+            repr,
+            &[
+                0x02, 0xfd, 0x00, 0x02, 0x00, 0x00, 0x00, 0x06, 0x00, 0x01, 0x02, 0x03, 0x04, 0x05,
+            ],
+        );
     }
 
     #[test]
     fn test_repr_round_trip_vehicle_identification_request_vin() {
-        let vin_bytes = [89, 83, 51, 68, 68, 55, 56, 78, 52, 88, 55, 48, 53, 53, 51, 50, 48];
+        let vin_bytes = [
+            89, 83, 51, 68, 68, 55, 56, 78, 52, 88, 55, 48, 53, 53, 51, 50, 48,
+        ];
         let repr = Repr {
             protocol_version: 0x02,
             inverse_protocol_version: 0xfd,
             payload: Payload {
                 type_code: PayloadTypeCode::VehicleIdentificationRequestVIN,
                 length: field::payload::vir_vin::LENGTH as u32,
-                content: PayloadTypeContent::VehicleIdentificationRequestWithVIN { vin: &vin_bytes },
+                content: PayloadTypeContent::VehicleIdentificationRequestWithVIN {
+                    vin: &vin_bytes,
+                },
             },
         };
         round_trip_test(repr);
-        round_trip_test_with_bytes(repr, &[
-            0x02, 0xfd, 0x00, 0x03, 0x00, 0x00, 0x00, 0x11, 89, 83, 51, 68, 68, 55, 56, 78, 52, 88, 55, 48, 53, 53, 51, 50, 48
-        ]);
+        round_trip_test_with_bytes(
+            repr,
+            &[
+                0x02, 0xfd, 0x00, 0x03, 0x00, 0x00, 0x00, 0x11, 89, 83, 51, 68, 68, 55, 56, 78, 52,
+                88, 55, 48, 53, 53, 51, 50, 48,
+            ],
+        );
     }
 
     #[test]
     fn test_repr_round_trip_vehicle_announcement_message() {
-        let vin_bytes = [83, 66, 77, 49, 50, 65, 66, 65, 51, 80, 87, 48, 48, 48, 48, 48, 49];
-    	let eid_bytes = [1, 2, 3, 4, 5, 6];
+        let vin_bytes = [
+            83, 66, 77, 49, 50, 65, 66, 65, 51, 80, 87, 48, 48, 48, 48, 48, 49,
+        ];
+        let eid_bytes = [1, 2, 3, 4, 5, 6];
         let gid_bytes = [6, 5, 4, 3, 2, 1];
         let repr = Repr {
             protocol_version: 0x02,
@@ -1272,9 +1283,14 @@ mod test {
             },
         };
         round_trip_test(repr);
-        round_trip_test_with_bytes(repr, &[
-            0x02, 0xfd, 0x00, 0x04, 0x00, 0x00, 0x00, 0x21, 83, 66, 77, 49, 50, 65, 66, 65, 51, 80, 87, 48, 48, 48, 48, 48, 49, 0x00, 0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x06, 0x05, 0x04, 0x03, 0x02, 0x01, 0x00, 0x00
-        ]);
+        round_trip_test_with_bytes(
+            repr,
+            &[
+                0x02, 0xfd, 0x00, 0x04, 0x00, 0x00, 0x00, 0x21, 83, 66, 77, 49, 50, 65, 66, 65, 51,
+                80, 87, 48, 48, 48, 48, 48, 49, 0x00, 0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06,
+                0x06, 0x05, 0x04, 0x03, 0x02, 0x01, 0x00, 0x00,
+            ],
+        );
     }
 
     #[test]
@@ -1294,9 +1310,13 @@ mod test {
             },
         };
         round_trip_test(repr);
-        round_trip_test_with_bytes(repr, &[
-            0x02, 0xfd, 0x00, 0x05, 0x00, 0x00, 0x00, 0x0B, 0x01, 0x01, 0x00, 0xA0, 0xA0, 0xA0, 0xA0, 0xC0, 0xC0, 0xC0, 0xC0
-        ]);
+        round_trip_test_with_bytes(
+            repr,
+            &[
+                0x02, 0xfd, 0x00, 0x05, 0x00, 0x00, 0x00, 0x0B, 0x01, 0x01, 0x00, 0xA0, 0xA0, 0xA0,
+                0xA0, 0xC0, 0xC0, 0xC0, 0xC0,
+            ],
+        );
     }
 
     #[test]
@@ -1317,9 +1337,13 @@ mod test {
             },
         };
         round_trip_test(repr);
-        round_trip_test_with_bytes(repr, &[
-            0x02, 0xfd, 0x00, 0x06, 0x00, 0x00, 0x00, 0x0D, 0x0E, 0x80, 0x01, 0x01, 0x00, 0xBE, 0xEF, 0xBA, 0xBE, 0xDE, 0xAD, 0xBE, 0xA7
-        ]);
+        round_trip_test_with_bytes(
+            repr,
+            &[
+                0x02, 0xfd, 0x00, 0x06, 0x00, 0x00, 0x00, 0x0D, 0x0E, 0x80, 0x01, 0x01, 0x00, 0xBE,
+                0xEF, 0xBA, 0xBE, 0xDE, 0xAD, 0xBE, 0xA7,
+            ],
+        );
     }
 
     #[test]
@@ -1334,9 +1358,7 @@ mod test {
             },
         };
         round_trip_test(repr);
-        round_trip_test_with_bytes(repr, &[
-            0x02, 0xfd, 0x00, 0x07, 0x00, 0x00, 0x00, 0x00
-        ]);
+        round_trip_test_with_bytes(repr, &[0x02, 0xfd, 0x00, 0x07, 0x00, 0x00, 0x00, 0x00]);
     }
 
     #[test]
@@ -1347,13 +1369,16 @@ mod test {
             payload: Payload {
                 type_code: PayloadTypeCode::AliveCheckResponse,
                 length: 2,
-                content: PayloadTypeContent::AliveCheckResponse { source_address: 0x0101 },
+                content: PayloadTypeContent::AliveCheckResponse {
+                    source_address: 0x0101,
+                },
             },
         };
         round_trip_test(repr);
-        round_trip_test_with_bytes(repr, &[
-            0x02, 0xfd, 0x00, 0x08, 0x00, 0x00, 0x00, 0x02, 0x01, 0x01
-        ]);
+        round_trip_test_with_bytes(
+            repr,
+            &[0x02, 0xfd, 0x00, 0x08, 0x00, 0x00, 0x00, 0x02, 0x01, 0x01],
+        );
     }
 
     #[test]
@@ -1368,9 +1393,7 @@ mod test {
             },
         };
         round_trip_test(repr);
-        round_trip_test_with_bytes(repr, &[
-            0x02, 0xfd, 0x40, 0x01, 0x00, 0x00, 0x00, 0x00
-        ]);
+        round_trip_test_with_bytes(repr, &[0x02, 0xfd, 0x40, 0x01, 0x00, 0x00, 0x00, 0x00]);
     }
 
     #[test]
@@ -1390,9 +1413,13 @@ mod test {
             },
         };
         round_trip_test(repr);
-        round_trip_test_with_bytes(repr, &[
-            0x02, 0xfd, 0x40, 0x02, 0x00, 0x00, 0x00, 0x07, 0x00, 0x02, 0x00, 0x00, 0x00, 0x04, 0x00
-        ]);
+        round_trip_test_with_bytes(
+            repr,
+            &[
+                0x02, 0xfd, 0x40, 0x02, 0x00, 0x00, 0x00, 0x07, 0x00, 0x02, 0x00, 0x00, 0x00, 0x04,
+                0x00,
+            ],
+        );
     }
 
     #[test]
@@ -1407,9 +1434,7 @@ mod test {
             },
         };
         round_trip_test(repr);
-        round_trip_test_with_bytes(repr, &[
-            0x02, 0xfd, 0x40, 0x03, 0x00, 0x00, 0x00, 0x00
-        ]);
+        round_trip_test_with_bytes(repr, &[0x02, 0xfd, 0x40, 0x03, 0x00, 0x00, 0x00, 0x00]);
     }
 
     #[test]
@@ -1426,9 +1451,10 @@ mod test {
             },
         };
         round_trip_test(repr);
-        round_trip_test_with_bytes(repr, &[
-            0x02, 0xfd, 0x40, 0x04, 0x00, 0x00, 0x00, 0x01, 0x01
-        ]);
+        round_trip_test_with_bytes(
+            repr,
+            &[0x02, 0xfd, 0x40, 0x04, 0x00, 0x00, 0x00, 0x01, 0x01],
+        );
     }
 
     #[test]
@@ -1447,9 +1473,13 @@ mod test {
             },
         };
         round_trip_test(repr);
-        round_trip_test_with_bytes(repr, &[
-            0x02, 0xfd, 0x80, 0x01, 0x00, 0x00, 0x00, 0x07, 0x0E, 0x80, 0x01, 0x01, 0x22, 0xF1, 0x90
-        ]);
+        round_trip_test_with_bytes(
+            repr,
+            &[
+                0x02, 0xfd, 0x80, 0x01, 0x00, 0x00, 0x00, 0x07, 0x0E, 0x80, 0x01, 0x01, 0x22, 0xF1,
+                0x90,
+            ],
+        );
     }
 
     #[test]
@@ -1469,9 +1499,12 @@ mod test {
             },
         };
         round_trip_test(repr);
-        round_trip_test_with_bytes(repr, &[
-            0x02, 0xfd, 0x80, 0x02, 0x00, 0x00, 0x00, 0x05, 0x01, 0x01, 0x0E, 0x80, 0x00
-        ]);
+        round_trip_test_with_bytes(
+            repr,
+            &[
+                0x02, 0xfd, 0x80, 0x02, 0x00, 0x00, 0x00, 0x05, 0x01, 0x01, 0x0E, 0x80, 0x00,
+            ],
+        );
     }
 
     #[test]
@@ -1491,8 +1524,11 @@ mod test {
             },
         };
         round_trip_test(repr);
-        round_trip_test_with_bytes(repr, &[
-            0x02, 0xfd, 0x80, 0x03, 0x00, 0x00, 0x00, 0x05, 0x01, 0x01, 0x0E, 0x80, 0x00
-        ]);
+        round_trip_test_with_bytes(
+            repr,
+            &[
+                0x02, 0xfd, 0x80, 0x03, 0x00, 0x00, 0x00, 0x05, 0x01, 0x01, 0x0E, 0x80, 0x00,
+            ],
+        );
     }
 }
